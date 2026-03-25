@@ -53,3 +53,13 @@ export interface UserProgress {
   quizAttempts: number;
   lastAttemptCorrect?: boolean;
 }
+
+export interface QuizResult {
+  id?: string;
+  studentName: string;
+  studentEmail: string;
+  moduleTitle: string;
+  score: number;
+  total: number;
+  timestamp: string;
+}

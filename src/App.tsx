@@ -171,6 +171,7 @@ export default function App() {
               <QuizView
                 module={currentModule!}
                 language={profile.preferredLanguage}
+                profile={profile}
                 onComplete={() => {
                   setShowQuiz(false);
                   setCurrentModuleId(null);

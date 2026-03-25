@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Module, Language } from '../types';
-import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, Volume2, RotateCcw } from 'lucide-react';
+import { Module, Language, UserProfile } from '../types';
+import { ChevronLeft, HelpCircle, CheckCircle2, XCircle, Volume2, RotateCcw, Loader2 } from 'lucide-react';
 import { speakText } from '../services/geminiService';
+import { moduleService } from '../services/moduleService';
 
 interface QuizViewProps {
   module: Module;
   language: Language;
+  profile: UserProfile;
   onComplete: () => void;
   onBack: () => void;
 }
 
-export default function QuizView({ module, language, onComplete, onBack }: QuizViewProps) {
+export default function QuizView({ module, language, profile, onComplete, onBack }: QuizViewProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [score, setScore] = useState(0);
 
   const question = module.quiz[currentQuestionIndex];
   const questionText = question.text[language] || question.text['en'] || '';
@@ -31,6 +35,25 @@ export default function QuizView({ module, language, onComplete, onBack }: QuizV
     speakText(questionOptions[index], language);
   };
 
+  const saveResult = async (finalScore: number) => {
+    setIsSaving(true);
+    try {
+      await moduleService.saveQuizResult({
+        studentName: profile.fullName,
+        studentEmail: profile.email,
+        moduleTitle: module.title.en || 'Untitled Module',
+        score: finalScore,
+        total: module.quiz.length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error('Error saving quiz result:', err);
+    } finally {
+      setIsSaving(false);
+      setShowResult(true);
+    }
+  };
+
   const handleCheck = () => {
     if (selectedOption === null) return;
 
@@ -38,6 +61,8 @@ export default function QuizView({ module, language, onComplete, onBack }: QuizV
     setIsCorrect(correct);
 
     if (correct) {
+      const newScore = score + 1;
+      setScore(newScore);
       const msg = language === 'ml' ? 'ശരിയായ ഉത്തരം! അഭിനന്ദനങ്ങൾ.' : 'Correct answer! Congratulations.';
       speakText(msg, language);
       setTimeout(() => {
@@ -47,7 +72,7 @@ export default function QuizView({ module, language, onComplete, onBack }: QuizV
           setIsCorrect(null);
           setAttempts(0);
         } else {
-          setShowResult(true);
+          saveResult(newScore);
         }
       }, 2000);
     } else {
@@ -68,7 +93,7 @@ export default function QuizView({ module, language, onComplete, onBack }: QuizV
             setIsCorrect(null);
             setAttempts(0);
           } else {
-            setShowResult(true);
+            saveResult(score);
           }
         }, 5000);
       } else {
@@ -79,6 +104,17 @@ export default function QuizView({ module, language, onComplete, onBack }: QuizV
       }
     }
   };
+
+  if (isSaving) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-12 h-12 animate-spin text-emerald-500" />
+        <p className="text-stone-500 font-black uppercase tracking-widest animate-pulse">
+          {language === 'ml' ? 'ഫലം രേഖപ്പെടുത്തുന്നു...' : 'Recording Results...'}
+        </p>
+      </div>
+    );
+  }
 
   if (showResult) {
     return (

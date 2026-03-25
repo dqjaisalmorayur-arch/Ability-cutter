@@ -1,5 +1,20 @@
 {
   "entities": {
+    "QuizResult": {
+      "title": "Quiz Result",
+      "description": "A record of a student's quiz performance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentName": { "type": "string" },
+        "studentEmail": { "type": "string" },
+        "moduleTitle": { "type": "string" },
+        "score": { "type": "number" },
+        "total": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentName", "studentEmail", "moduleTitle", "score", "total", "timestamp"]
+    },
     "UserProfile": {
       "title": "UserProfile",
       "description": "Stores user profile information and roles.",
@@ -50,6 +65,10 @@
     "/modules/{moduleId}": {
       "schema": "Module",
       "description": "Learning module documents."
+    },
+    "/quiz_results/{resultId}": {
+      "schema": "QuizResult",
+      "description": "Student quiz results."
     }
   }
 }

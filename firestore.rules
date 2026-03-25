@@ -52,5 +52,13 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
+
+    // Quiz Results Rules
+    match /quiz_results/{resultId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && 
+                    request.resource.data.studentEmail == request.auth.token.email;
+      allow update, delete: if isAdmin();
+    }
   }
 }
