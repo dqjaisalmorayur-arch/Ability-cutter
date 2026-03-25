@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Module, Language } from '../types';
-import { ChevronLeft, Play, Volume2, ArrowRight } from 'lucide-react';
+import { ChevronLeft, Play, Volume2, ArrowRight, Pause, Music } from 'lucide-react';
 import { speakText } from '../services/geminiService';
 
 interface LessonViewProps {
@@ -12,6 +12,9 @@ interface LessonViewProps {
 
 export default function LessonView({ module, language, onStartQuiz, onBack }: LessonViewProps) {
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   const lesson = module.lessons[currentLessonIndex];
   const lessonTitle = lesson.title[language] || lesson.title['en'] || '';
   const lessonContent = lesson.content[language] || lesson.content['en'] || '';
@@ -20,8 +23,35 @@ export default function LessonView({ module, language, onStartQuiz, onBack }: Le
     speakText(`${lessonTitle}. ${lessonContent}`, language);
   };
 
-  React.useEffect(() => {
+  const toggleAudio = () => {
+    if (!lesson.audioUrl) {
+      handleSpeak();
+      return;
+    }
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio(lesson.audioUrl);
+      audioRef.current.onended = () => setIsPlaying(false);
+    }
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.src = lesson.audioUrl;
+      audioRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  useEffect(() => {
     handleSpeak();
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+    };
   }, [currentLessonIndex, language]);
 
   return (
@@ -45,13 +75,26 @@ export default function LessonView({ module, language, onStartQuiz, onBack }: Le
                 {lessonTitle}
               </h2>
             </div>
-            <button
-              onClick={handleSpeak}
-              className="p-6 bg-stone-900 text-emerald-500 rounded-3xl border border-stone-800 hover:bg-emerald-500 hover:text-black transition-all duration-500 shadow-xl"
-              aria-label={language === 'ml' ? 'വായിക്കുക' : 'Read Aloud'}
-            >
-              <Volume2 className="w-10 h-10" />
-            </button>
+            <div className="flex gap-4">
+              <button
+                onClick={toggleAudio}
+                className={`p-6 rounded-3xl border transition-all duration-500 shadow-xl flex items-center justify-center ${
+                  isPlaying 
+                    ? 'bg-blue-600 border-blue-400 text-white animate-pulse' 
+                    : 'bg-blue-500 border-blue-400 text-white hover:bg-blue-600'
+                }`}
+                aria-label={language === 'ml' ? 'ഓഡിയോ പ്ലേ ചെയ്യുക' : 'Play Audio'}
+              >
+                {isPlaying ? <Pause className="w-10 h-10" /> : <Music className="w-10 h-10" />}
+              </button>
+              <button
+                onClick={handleSpeak}
+                className="p-6 bg-stone-900 text-emerald-500 rounded-3xl border border-stone-800 hover:bg-emerald-500 hover:text-black transition-all duration-500 shadow-xl"
+                aria-label={language === 'ml' ? 'വായിക്കുക' : 'Read Aloud'}
+              >
+                <Volume2 className="w-10 h-10" />
+              </button>
+            </div>
           </div>
 
           <div className="relative">

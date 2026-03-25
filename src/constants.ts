@@ -4,6 +4,7 @@ export const MODULES: Module[] = [
   {
     id: 'computer-basics-blind',
     category: 'basic',
+    level: 'basic',
     title: {
       en: 'Introduction to Computer for Blind Students',
       ml: 'കാഴ്ചാപരിമിതിയുള്ളവർക്കായി കമ്പ്യൂട്ടർ പരിചയം'
@@ -51,6 +52,7 @@ export const MODULES: Module[] = [
   {
     id: 'screen-reader-basics',
     category: 'basic',
+    level: 'basic',
     title: {
       en: 'Your Talking Friend: The Screen Reader',
       ml: 'സംസാരിക്കുന്ന കൂട്ടുകാരൻ: സ്ക്രീൻ റീഡർ'
@@ -98,6 +100,7 @@ export const MODULES: Module[] = [
   {
     id: 'typing-mastery',
     category: 'basic',
+    level: 'basic',
     title: {
       en: 'Mastering the Keys',
       ml: 'ടൈപ്പിംഗ് പഠിക്കാം'
@@ -134,6 +137,7 @@ export const MODULES: Module[] = [
   {
     id: 'internet-browsing-blind',
     category: 'internet',
+    level: 'basic',
     title: {
       en: 'Surfing the Web with Your Ears',
       ml: 'ഇന്റർനെറ്റ് ലോകം കാതുകൾ കൊണ്ട് അറിയാം'

@@ -10,6 +10,7 @@ export interface Lesson {
     [key in Language]?: string;
   };
   videoUrl?: string;
+  audioUrl?: string;
 }
 
 export interface Question {
@@ -25,7 +26,8 @@ export interface Question {
 
 export interface Module {
   id: string;
-  category: 'basic' | 'internet' | 'office' | 'advanced';
+  category: string;
+  level: 'basic' | 'advanced';
   title: {
     [key in Language]?: string;
   };

@@ -14,11 +14,17 @@ export default function AdminPanel({ modules, language }: AdminPanelProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Module>>({
-    category: 'basic',
+    category: 'Desktop',
+    level: 'basic',
     title: { en: '', ml: '' },
     lessons: [],
     quiz: []
   });
+
+  const categories = [
+    'Desktop', 'Taskbar', 'Start Menu', 'Notepad', 'Calculator', 
+    'MS Word Basic', 'MS Word Advanced', 'Excel', 'PowerPoint', 'Internet'
+  ];
 
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -145,14 +151,33 @@ export default function AdminPanel({ modules, language }: AdminPanelProps) {
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-black uppercase text-stone-500 tracking-widest">Category</label>
+                  <div className="relative">
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 appearance-none"
+                    >
+                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                      <option value="Other">Other</option>
+                    </select>
+                    {formData.category === 'Other' && (
+                      <input
+                        type="text"
+                        placeholder="Enter Category Name"
+                        className="mt-2 w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500"
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      />
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black uppercase text-stone-500 tracking-widest">Level</label>
                   <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
+                    value={formData.level}
+                    onChange={(e) => setFormData({ ...formData, level: e.target.value as any })}
                     className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500"
                   >
                     <option value="basic">Basic</option>
-                    <option value="internet">Internet</option>
-                    <option value="office">Office</option>
                     <option value="advanced">Advanced</option>
                   </select>
                 </div>
@@ -204,6 +229,28 @@ export default function AdminPanel({ modules, language }: AdminPanelProps) {
                       }}
                       className="w-full bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-sm h-20"
                     />
+                    <div className="grid grid-cols-2 gap-4">
+                      <input
+                        placeholder="Video URL (Optional)"
+                        value={lesson.videoUrl || ''}
+                        onChange={(e) => {
+                          const newLessons = [...(formData.lessons || [])];
+                          newLessons[idx] = { ...lesson, videoUrl: e.target.value };
+                          setFormData({ ...formData, lessons: newLessons });
+                        }}
+                        className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-xs"
+                      />
+                      <input
+                        placeholder="Audio URL (Optional)"
+                        value={lesson.audioUrl || ''}
+                        onChange={(e) => {
+                          const newLessons = [...(formData.lessons || [])];
+                          newLessons[idx] = { ...lesson, audioUrl: e.target.value };
+                          setFormData({ ...formData, lessons: newLessons });
+                        }}
+                        className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-xs"
+                      />
+                    </div>
                     <button
                       onClick={() => {
                         const newLessons = formData.lessons?.filter((_, i) => i !== idx);

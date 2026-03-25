@@ -31,10 +31,11 @@
     },
     "Module": {
       "title": "Module",
-      "description": "A learning module containing lessons.",
+      "description": "A learning module containing lessons and a quiz",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "category": { "type": "string" },
         "level": { "type": "string", "enum": ["basic", "advanced"] },
         "title": {
           "type": "object",
@@ -43,18 +44,23 @@
             "ml": { "type": "string" }
           }
         },
-        "content": {
-          "type": "object",
-          "properties": {
-            "en": { "type": "string" },
-            "ml": { "type": "string" }
+        "lessons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "object" },
+              "content": { "type": "object" },
+              "videoUrl": { "type": "string" },
+              "audioUrl": { "type": "string" }
+            }
           }
         },
-        "order": { "type": "integer" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "quiz": { "type": "array" },
+        "order": { "type": "integer" }
       },
-      "required": ["level", "title", "content"]
+      "required": ["category", "level", "title", "lessons", "quiz"]
     }
   },
   "firestore": {
