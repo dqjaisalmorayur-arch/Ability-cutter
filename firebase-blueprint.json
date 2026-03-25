@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Stores user profile information and roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "fullName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "student"] },
+        "preferredLanguage": { "type": "string", "enum": ["en", "ml"] },
+        "preferredScreenReader": { "type": "string" }
+      },
+      "required": ["uid", "email", "fullName", "role"]
+    },
+    "Module": {
+      "title": "Module",
+      "description": "A learning module containing lessons.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "level": { "type": "string", "enum": ["basic", "advanced"] },
+        "title": {
+          "type": "object",
+          "properties": {
+            "en": { "type": "string" },
+            "ml": { "type": "string" }
+          }
+        },
+        "content": {
+          "type": "object",
+          "properties": {
+            "en": { "type": "string" },
+            "ml": { "type": "string" }
+          }
+        },
+        "order": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["level", "title", "content"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents."
+    },
+    "/modules/{moduleId}": {
+      "schema": "Module",
+      "description": "Learning module documents."
+    }
+  }
+}

@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - fullName: string (required)
+    //   - role: string (required, ['admin', 'student'])
+    //   - preferredLanguage: string
+    //   - preferredScreenReader: string
+    //
+    // Collection: modules
+    // Fields:
+    //   - title: map (en: string, ml: string)
+    //   - category: string
+    //   - lessons: list
+    //   - quiz: list
+    //   - order: number
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "dqjaisalmorayur@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    // User Profile Rules
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId && 
+                    request.resource.data.role == (request.auth.token.email == "dqjaisalmorayur@gmail.com" ? 'admin' : 'student');
+      allow update: if isOwner(userId) && request.resource.data.role == resource.data.role || isAdmin();
+    }
+
+    // Module Rules
+    match /modules/{moduleId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

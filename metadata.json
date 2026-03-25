@@ -1,0 +1,5 @@
+{
+  "name": "Ability Computer Learning",
+  "description": "An accessible computer learning platform for visually impaired children with multi-language support and AI voice guidance.",
+  "requestFramePermissions": ["microphone"]
+}

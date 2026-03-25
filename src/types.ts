@@ -1,0 +1,55 @@
+export type Language = 'en' | 'ml' | 'hi' | 'ta' | 'kn' | 'te';
+export type ScreenReader = 'nvda' | 'jaws' | 'narrator';
+
+export interface Lesson {
+  id: string;
+  title: {
+    [key in Language]?: string;
+  };
+  content: {
+    [key in Language]?: string;
+  };
+  videoUrl?: string;
+}
+
+export interface Question {
+  id: string;
+  text: {
+    [key in Language]?: string;
+  };
+  options: {
+    [key in Language]?: string[];
+  };
+  correctIndex: number;
+}
+
+export interface Module {
+  id: string;
+  category: 'basic' | 'internet' | 'office' | 'advanced';
+  title: {
+    [key in Language]?: string;
+  };
+  lessons: Lesson[];
+  quiz: Question[];
+  order: number;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  fullName: string;
+  role: 'admin' | 'student';
+  age?: number;
+  phone?: string;
+  preferredLanguage: Language;
+  preferredScreenReader?: ScreenReader;
+}
+
+export interface UserProgress {
+  id?: string;
+  userId: string;
+  moduleId: string;
+  status: 'locked' | 'in-progress' | 'completed';
+  quizAttempts: number;
+  lastAttemptCorrect?: boolean;
+}
