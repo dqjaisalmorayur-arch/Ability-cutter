@@ -31,9 +31,13 @@ export interface Module {
   title: {
     [key in Language]?: string;
   };
+  description: {
+    [key in Language]?: string;
+  };
   lessons: Lesson[];
   quiz: Question[];
   order: number;
+  imageUrl?: string;
 }
 
 export interface UserProfile {

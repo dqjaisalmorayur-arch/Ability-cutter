@@ -44,6 +44,13 @@
             "ml": { "type": "string" }
           }
         },
+        "description": {
+          "type": "object",
+          "properties": {
+            "en": { "type": "string" },
+            "ml": { "type": "string" }
+          }
+        },
         "lessons": {
           "type": "array",
           "items": {
@@ -58,7 +65,8 @@
           }
         },
         "quiz": { "type": "array" },
-        "order": { "type": "integer" }
+        "order": { "type": "integer" },
+        "imageUrl": { "type": "string" }
       },
       "required": ["category", "level", "title", "lessons", "quiz"]
     }

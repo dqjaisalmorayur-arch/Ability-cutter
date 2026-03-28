@@ -5,9 +5,14 @@ export const MODULES: Module[] = [
     id: 'computer-basics-blind',
     category: 'basic',
     level: 'basic',
+    imageUrl: 'https://picsum.photos/seed/computer/800/600',
     title: {
       en: 'Introduction to Computer for Blind Students',
       ml: 'കാഴ്ചാപരിമിതിയുള്ളവർക്കായി കമ്പ്യൂട്ടർ പരിചയം'
+    },
+    description: {
+      en: 'Learn the basics of computer hardware and keyboard layout designed for visually impaired students.',
+      ml: 'കാഴ്ചാപരിമിതിയുള്ളവർക്കായി കമ്പ്യൂട്ടർ ഹാർഡ്‌വെയറും കീബോർഡ് ലേഔട്ടും ലളിതമായി പഠിക്കാം.'
     },
     order: 0,
     lessons: [
@@ -57,6 +62,10 @@ export const MODULES: Module[] = [
       en: 'Your Talking Friend: The Screen Reader',
       ml: 'സംസാരിക്കുന്ന കൂട്ടുകാരൻ: സ്ക്രീൻ റീഡർ'
     },
+    description: {
+      en: 'Understand how screen readers like NVDA and JAWS help you navigate the computer.',
+      ml: 'NVDA, JAWS പോലുള്ള സ്ക്രീൻ റീഡറുകൾ കമ്പ്യൂട്ടർ ഉപയോഗിക്കാൻ നിങ്ങളെ എങ്ങനെ സഹായിക്കുന്നു എന്ന് മനസ്സിലാക്കാം.'
+    },
     order: 1,
     lessons: [
       {
@@ -105,6 +114,10 @@ export const MODULES: Module[] = [
       en: 'Mastering the Keys',
       ml: 'ടൈപ്പിംഗ് പഠിക്കാം'
     },
+    description: {
+      en: 'Learn touch typing techniques to type quickly and accurately without looking.',
+      ml: 'നോക്കാതെ വേഗത്തിലും കൃത്യമായും ടൈപ്പ് ചെയ്യാനുള്ള വിദ്യകൾ പഠിക്കാം.'
+    },
     order: 2,
     lessons: [
       {
@@ -141,6 +154,10 @@ export const MODULES: Module[] = [
     title: {
       en: 'Surfing the Web with Your Ears',
       ml: 'ഇന്റർനെറ്റ് ലോകം കാതുകൾ കൊണ്ട് അറിയാം'
+    },
+    description: {
+      en: 'Explore the internet and learn how to browse websites using screen readers.',
+      ml: 'സ്ക്രീൻ റീഡറുകൾ ഉപയോഗിച്ച് ഇന്റർനെറ്റും വെബ്സൈറ്റുകളും എങ്ങനെ ഉപയോഗിക്കാം എന്ന് പഠിക്കാം.'
     },
     order: 3,
     lessons: [

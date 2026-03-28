@@ -1,0 +1,51 @@
+{
+  "name": "Ability Learning",
+  "short_name": "Ability",
+  "id": "ability-learning",
+  "description": "Inclusive learning platform for visually impaired students.",
+  "lang": "en-US",
+  "dir": "ltr",
+  "start_url": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#10b981",
+  "categories": ["education", "accessibility"],
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/ability/192/192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://picsum.photos/seed/ability/512/512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "https://picsum.photos/seed/ability/512/512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "https://picsum.photos/seed/ability-screen/1280/720",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Ability Learning Dashboard"
+    },
+    {
+      "src": "https://picsum.photos/seed/ability-mobile/720/1280",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Ability Learning Mobile"
+    }
+  ]
+}

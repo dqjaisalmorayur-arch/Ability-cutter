@@ -1,5 +1,7 @@
 import { 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut,
@@ -18,9 +20,26 @@ import { UserProfile, Language } from '../types';
 export const authService = {
   // Google Sign In
   signInWithGoogle: async (): Promise<UserProfile> => {
+    // Check if we are in a WebView or mobile environment where popups might fail
+    const isWebView = /wv|Version\/[\d\.]+/i.test(navigator.userAgent);
+    
+    if (isWebView) {
+      await signInWithRedirect(auth, googleProvider);
+      // This will redirect the page, so we won't return anything here
+      return new Promise(() => {}); 
+    }
+
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
     return await authService.syncUserProfile(user);
+  },
+
+  handleRedirectResult: async (): Promise<UserProfile | null> => {
+    const result = await getRedirectResult(auth);
+    if (result) {
+      return await authService.syncUserProfile(result.user);
+    }
+    return null;
   },
 
   // Email/Password Login
@@ -87,10 +106,15 @@ export const authService = {
 
   onAuthChange: (callback: (profile: UserProfile | null) => void) => {
     return onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const profile = await authService.syncUserProfile(user);
-        callback(profile);
-      } else {
+      try {
+        if (user) {
+          const profile = await authService.syncUserProfile(user);
+          callback(profile);
+        } else {
+          callback(null);
+        }
+      } catch (error) {
+        console.error('Auth change error:', error);
         callback(null);
       }
     });
