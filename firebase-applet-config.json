@@ -1,10 +1,9 @@
 {
-  "projectId": "gen-lang-client-0867100772",
-  "appId": "1:674312894394:web:df76046ffd15cb02b58f83",
-  "apiKey": "AIzaSyCuy1GWsgZhuvqImEurgSGwhvPexWBcSq4",
-  "authDomain": "gen-lang-client-0867100772.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-e79f7c64-9d55-41f9-a5ec-b843f5006083",
-  "storageBucket": "gen-lang-client-0867100772.firebasestorage.app",
+  "projectId": "glass-sequence-474612-f8",
+  "apiKey": "AIzaSyAQBH001UINFz-CikTEgpnnJglvHw2hryc",
+  "authDomain": "glass-sequence-474612-f8.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "glass-sequence-474612-f8.firebasestorage.app",
   "messagingSenderId": "674312894394",
-  "measurementId": ""
+  "appId": "1:674312894394:web:df76046ffd15cb02b58f83"
 }

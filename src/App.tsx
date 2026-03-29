@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { Language, UserProfile, ScreenReader } from './types';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import LessonView from './components/LessonView';
 import QuizView from './components/QuizView';
 import { MODULES } from './constants';
-import { Loader2, LogOut, Languages, Settings } from 'lucide-react';
+import { Loader2, LogOut, Languages, Settings, AlertTriangle, RefreshCcw } from 'lucide-react';
 import { speakText } from './services/geminiService';
 import Logo from './components/Logo';
 import { authService } from './services/authService';
@@ -13,10 +13,81 @@ import { moduleService } from './services/moduleService';
 import AdminPanel from './components/AdminPanel';
 import { Module, UserProgress } from './types';
 
+// Error Boundary Component
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-paper flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-white rounded-[2rem] border border-black/5 p-12 text-center space-y-6 shadow-2xl">
+            <div className="w-20 h-20 bg-red-50 text-red-500 rounded-3xl mx-auto flex items-center justify-center">
+              <AlertTriangle className="w-10 h-10" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-ink">Something went wrong</h2>
+              <p className="text-zinc-500 text-sm">
+                The application encountered an unexpected error. Please try refreshing the page.
+              </p>
+            </div>
+            <div className="p-4 bg-red-50/50 rounded-xl text-left overflow-auto max-h-40">
+              <code className="text-xs text-red-600 font-mono">
+                {this.state.error?.message || 'Unknown error'}
+              </code>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-ability-blue text-white font-bold py-4 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2"
+            >
+              <RefreshCcw className="w-4 h-4" />
+              Refresh Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export default function App() {
+  console.log('App component rendering');
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
+}
+
+function AppContent() {
+  console.log('AppContent component rendering');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [language, setLanguage] = useState<Language>('en');
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [currentModuleId, setCurrentModuleId] = useState<string | null>(null);
@@ -26,22 +97,70 @@ export default function App() {
   const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error('Global error caught:', event.error);
+      setGlobalError(event.error?.message || 'Unknown global error');
+    };
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  if (globalError) {
+    return (
+      <div className="min-h-screen bg-red-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center space-y-4 shadow-xl border border-red-100">
+          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto" />
+          <h2 className="text-xl font-bold text-red-900">Critical System Error</h2>
+          <p className="text-red-700 text-sm font-mono bg-red-50 p-4 rounded-xl break-words">
+            {globalError}
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors"
+          >
+            Refresh Application
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  useEffect(() => {
     const checkDesktop = () => {
       setIsDesktop(window.innerWidth >= 1024);
     };
     checkDesktop();
     window.addEventListener('resize', checkDesktop);
+    
+    // Check for Gemini API Key
+    if (!process.env.GEMINI_API_KEY) {
+      console.warn('GEMINI_API_KEY is missing. AI features will not work.');
+    }
+
     return () => window.removeEventListener('resize', checkDesktop);
   }, []);
 
   useEffect(() => {
+    // Safety timeout for loading state
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.warn('Auth check timed out after 10s. Forcing loading to false.');
+        setLoading(false);
+        setAuthError('Authentication check timed out. Please check your connection.');
+      }
+    }, 10000);
+
     const unsubscribeAuth = authService.onAuthChange((userProfile) => {
+      console.log('Auth state changed:', userProfile ? 'Logged in' : 'Logged out');
+      clearTimeout(timeout);
       setProfile(userProfile);
       setLoading(false);
+      setAuthError(null);
     });
 
     return () => {
       unsubscribeAuth();
+      clearTimeout(timeout);
     };
   }, []);
 
@@ -179,8 +298,34 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-paper flex items-center justify-center">
+      <div className="min-h-screen bg-paper flex flex-col items-center justify-center gap-4">
         <Loader2 className="w-12 h-12 animate-spin text-ability-blue" />
+        <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs animate-pulse">
+          Initializing Ability Learning...
+        </p>
+      </div>
+    );
+  }
+
+  if (authError && !profile) {
+    return (
+      <div className="min-h-screen bg-paper flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-[2rem] border border-black/5 p-12 text-center space-y-6 shadow-2xl">
+          <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-3xl mx-auto flex items-center justify-center">
+            <AlertTriangle className="w-10 h-10" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-ink">Connection Issue</h2>
+            <p className="text-zinc-500 text-sm">{authError}</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full bg-ability-blue text-white font-bold py-4 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2"
+          >
+            <RefreshCcw className="w-4 h-4" />
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }

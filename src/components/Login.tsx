@@ -124,7 +124,7 @@ export default function Login({ onLoginSuccess, language }: LoginProps) {
             <div className="flex -space-x-4">
               {[1, 2, 3, 4].map(i => (
                 <div key={i} className="w-10 h-10 rounded-full border-2 border-stone-950 bg-stone-800 flex items-center justify-center overflow-hidden">
-                  <img src={`https://picsum.photos/seed/user${i}/100/100`} alt="User" referrerPolicy="no-referrer" />
+                  <img src={`https://picsum.photos/seed/user${i}/100/100`} alt={`Student avatar ${i}`} referrerPolicy="no-referrer" />
                 </div>
               ))}
             </div>
@@ -166,43 +166,49 @@ export default function Login({ onLoginSuccess, language }: LoginProps) {
                   className="space-y-6 overflow-hidden"
                 >
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-1">Full Name</label>
+                    <label htmlFor="fullName" className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-1">Full Name</label>
                     <div className="relative group">
                       <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-600 group-focus-within:text-emerald-500 transition-colors" />
                       <input
                         type="text"
+                        id="fullName"
                         required={!isLogin}
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         className="w-full bg-stone-900 border-2 border-stone-800 rounded-2xl py-4 pl-12 pr-4 text-white font-black focus:outline-none focus:border-emerald-500 transition-all"
                         placeholder="John Doe"
+                        aria-label={language === 'ml' ? 'പൂർണ്ണ നാമം' : 'Full Name'}
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-1">Age</label>
+                      <label htmlFor="age" className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-1">Age</label>
                       <div className="relative group">
                         <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-600 group-focus-within:text-emerald-500 transition-colors" />
                         <input
                           type="number"
+                          id="age"
                           value={age}
                           onChange={(e) => setAge(e.target.value)}
                           className="w-full bg-stone-900 border-2 border-stone-800 rounded-2xl py-4 pl-12 pr-4 text-white font-black focus:outline-none focus:border-emerald-500 transition-all"
                           placeholder="25"
+                          aria-label={language === 'ml' ? 'പ്രായം' : 'Age'}
                         />
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-1">Phone</label>
+                      <label htmlFor="phone" className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-1">Phone</label>
                       <div className="relative group">
                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-600 group-focus-within:text-emerald-500 transition-colors" />
                         <input
                           type="tel"
+                          id="phone"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           className="w-full bg-stone-900 border-2 border-stone-800 rounded-2xl py-4 pl-12 pr-4 text-white font-black focus:outline-none focus:border-emerald-500 transition-all"
                           placeholder="Phone"
+                          aria-label={language === 'ml' ? 'ഫോൺ നമ്പർ' : 'Phone Number'}
                         />
                       </div>
                     </div>
@@ -212,36 +218,42 @@ export default function Login({ onLoginSuccess, language }: LoginProps) {
             </AnimatePresence>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-1">Email Address</label>
+              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-1">Email Address</label>
               <div className="relative group">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-600 group-focus-within:text-emerald-500 transition-colors" />
                 <input
                   type="email"
+                  id="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-stone-900 border-2 border-stone-800 rounded-2xl py-4 pl-12 pr-4 text-white font-black focus:outline-none focus:border-emerald-500 transition-all"
                   placeholder="name@example.com"
+                  aria-label={language === 'ml' ? 'ഇമെയിൽ വിലാസം' : 'Email Address'}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-1">Password</label>
+              <label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-1">Password</label>
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-600 group-focus-within:text-emerald-500 transition-colors" />
                 <input
                   type={showPassword ? "text" : "password"}
+                  id="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-stone-900 border-2 border-stone-800 rounded-2xl py-4 pl-12 pr-4 text-white font-black focus:outline-none focus:border-emerald-500 transition-all"
                   placeholder="••••••••"
+                  aria-label={language === 'ml' ? 'പാസ്‌വേഡ്' : 'Password'}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-600 hover:text-white transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-600 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-full p-1"
+                  aria-label={showPassword ? (language === 'ml' ? 'പാസ്‌വേഡ് മറയ്ക്കുക' : 'Hide password') : (language === 'ml' ? 'പാസ്‌വേഡ് കാണിക്കുക' : 'Show password')}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -253,6 +265,8 @@ export default function Login({ onLoginSuccess, language }: LoginProps) {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-xs font-black uppercase tracking-widest flex items-center gap-3"
+                role="alert"
+                aria-live="assertive"
               >
                 <Shield className="w-4 h-4" />
                 {error}
@@ -262,7 +276,9 @@ export default function Login({ onLoginSuccess, language }: LoginProps) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-emerald-500 text-black font-black py-5 rounded-2xl hover:bg-white transition-all shadow-[0_20px_40px_rgba(16,185,129,0.2)] active:scale-95 flex items-center justify-center gap-3 text-lg uppercase tracking-widest"
+              className="w-full bg-emerald-500 text-black font-black py-5 rounded-2xl hover:bg-white transition-all shadow-[0_20px_40px_rgba(16,185,129,0.2)] active:scale-95 flex items-center justify-center gap-3 text-lg uppercase tracking-widest focus:outline-none focus:ring-4 focus:ring-emerald-500/50"
+              aria-label={isLogin ? (language === 'ml' ? 'ലോഗിൻ ചെയ്യുക' : 'Login') : (language === 'ml' ? 'രജിസ്റ്റർ ചെയ്യുക' : 'Register')}
+              aria-busy={loading}
             >
               {loading ? (
                 <Loader2 className="w-6 h-6 animate-spin" />
@@ -287,7 +303,9 @@ export default function Login({ onLoginSuccess, language }: LoginProps) {
               type="button"
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="w-full bg-stone-900 border-2 border-stone-800 text-white font-black py-4 rounded-2xl hover:bg-stone-800 transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
+              className="w-full bg-stone-900 border-2 border-stone-800 text-white font-black py-4 rounded-2xl hover:bg-stone-800 transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs focus:outline-none focus:ring-4 focus:ring-stone-500"
+              aria-label={language === 'ml' ? 'ഗൂഗിൾ ഉപയോഗിച്ച് തുടരുക' : 'Continue with Google Account'}
+              aria-busy={loading}
             >
               <Chrome className="w-5 h-5 text-blue-600" />
               Google Account
@@ -297,7 +315,10 @@ export default function Login({ onLoginSuccess, language }: LoginProps) {
           <div className="pt-6 text-center">
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-stone-500 hover:text-white font-black uppercase tracking-widest text-xs transition-colors"
+              className="text-stone-500 hover:text-white font-black uppercase tracking-widest text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-stone-500 rounded-lg p-2"
+              aria-label={isLogin 
+                ? (language === 'ml' ? 'പുതിയ അക്കൗണ്ട് തുടങ്ങണോ? രജിസ്റ്റർ ചെയ്യുക' : "Don't have an account? Register now") 
+                : (language === 'ml' ? 'നിലവിൽ അക്കൗണ്ട് ഉണ്ടോ? ലോഗിൻ ചെയ്യുക' : 'Already have an account? Login')}
             >
               {isLogin 
                 ? (language === 'ml' ? 'പുതിയ അക്കൗണ്ട് തുടങ്ങണോ? രജിസ്റ്റർ ചെയ്യുക' : "Don't have an account? Register now") 

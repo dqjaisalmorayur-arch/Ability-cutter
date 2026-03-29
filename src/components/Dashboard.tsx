@@ -123,7 +123,7 @@ export default function Dashboard({
           <div className="hidden lg:block w-1/3 aspect-[3/4] bg-paper rounded-[2rem] border border-black/5 shadow-2xl relative overflow-hidden group rotate-3 hover:rotate-0 transition-all duration-700">
             <img 
               src="https://picsum.photos/seed/library/600/800" 
-              alt="" 
+              alt={language === 'ml' ? 'ഒരു ലൈബ്രറിയുടെ ചിത്രം, പഠനത്തെ സൂചിപ്പിക്കുന്നു' : 'An image of a library, representing learning and education'} 
               className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
               referrerPolicy="no-referrer"
             />
@@ -147,6 +147,7 @@ export default function Dashboard({
             </div>
             <input 
               type="text"
+              aria-label={language === 'ml' ? 'പാഠങ്ങൾ തിരയുക' : 'Search modules'}
               placeholder={language === 'ml' ? 'പാഠങ്ങൾ തിരയുക...' : 'Search modules...'}
               className="w-full bg-white border border-black/5 rounded-3xl py-6 pl-16 pr-8 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-ability-blue/10 focus:border-ability-blue/30 transition-all placeholder:text-zinc-400 shadow-sm"
               value={searchQuery}
@@ -300,10 +301,9 @@ export default function Dashboard({
                 <div className="relative aspect-[4/5] overflow-hidden">
                   <img 
                     src={m.imageUrl || `https://picsum.photos/seed/${encodeURIComponent(m.title.en)}/800/1000`} 
-                    alt="" 
+                    alt={`${m.title[language] || m.title.en} - ${language === 'ml' ? 'പാഠത്തിന്റെ ചിത്രം' : 'Module illustration'}`} 
                     className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
                     referrerPolicy="no-referrer"
-                    aria-hidden="true"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   
@@ -466,7 +466,7 @@ export default function Dashboard({
           <div className="w-full lg:w-2/5 aspect-[4/5] rounded-[2rem] overflow-hidden border border-black/5 shadow-xl relative group">
             <img 
               src="https://picsum.photos/seed/ability-foundation/800/1000" 
-              alt="Ability Foundation Campus" 
+              alt={language === 'ml' ? 'എബിലിറ്റി ഫൗണ്ടേഷൻ ക്യാമ്പസിന്റെ ചിത്രം' : 'Ability Foundation Campus building and environment'} 
               className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000"
               referrerPolicy="no-referrer"
             />

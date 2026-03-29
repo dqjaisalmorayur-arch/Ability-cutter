@@ -1,7 +1,19 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { Language } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let aiInstance: GoogleGenAI | null = null;
+
+function getAI() {
+  if (!aiInstance) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn("GEMINI_API_KEY is missing. AI features will be disabled.");
+      // Return a dummy object or handle it gracefully
+    }
+    aiInstance = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
+  }
+  return aiInstance;
+}
 
 const LANG_MAP: Record<Language, string> = {
   en: 'en-US',
@@ -35,7 +47,7 @@ export async function searchImage(query: string) {
   if (!query) return null;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: 'gemini-3.1-flash-image-preview',
       contents: {
         parts: [
@@ -79,7 +91,7 @@ export async function generateModuleContent(sourceText: string) {
   if (!sourceText) return null;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Translate and structure this educational content for a learning platform specifically designed for visually impaired children. 
       Input: ${sourceText}
@@ -129,7 +141,7 @@ export async function generateQuizQuestions(topic: string) {
   if (!topic) return null;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Generate 3 multiple choice quiz questions about this topic: ${topic}.
       The questions are for visually impaired children, so make them clear and easy to understand when read aloud by a screen reader.
@@ -180,7 +192,7 @@ export async function generateImage(prompt: string) {
   if (!prompt) return null;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
@@ -206,7 +218,7 @@ export async function generateImage(prompt: string) {
 
 export async function generateTitleFromImage(fileData: { data: string, mimeType: string }) {
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: {
         parts: [
@@ -304,7 +316,7 @@ export async function generateFullModuleFromText(sourceText?: string, fileData?:
       Ensure all Malayalam translations are natural, easy to understand, and descriptive for the visually impaired.
     `});
 
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: { parts },
       config: {
@@ -431,7 +443,7 @@ export async function validateAnswer(userAnswer: string, correctAnswer: string):
   if (normUser === normCorrect) return true;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Compare these two answers for an educational quiz. 
       Answer 1 (User): "${userAnswer}"

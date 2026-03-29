@@ -111,6 +111,7 @@ export default function LessonView({ module, userId, language, onStartQuiz, onBa
                       <button
                         onClick={toggleAudio}
                         aria-pressed={isPlaying}
+                        aria-label={isPlaying ? (language === 'ml' ? 'ഓഡിയോ നിർത്തുക' : 'Pause audio') : (language === 'ml' ? 'ഓഡിയോ പ്ലേ ചെയ്യുക' : 'Play audio')}
                         className={`w-20 h-20 rounded-full flex items-center justify-center transition-all focus:outline-none focus:ring-4 focus:ring-ability-blue/30 shadow-xl active:scale-95 ${
                           isPlaying 
                             ? 'bg-ability-blue text-white' 

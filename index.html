@@ -28,7 +28,23 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      function showError(msg, stack) {
+        document.body.innerHTML = '<div style="padding: 20px; color: red; font-family: sans-serif; background: white; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; overflow: auto;">' +
+          '<h1>Fatal Error</h1><pre style="white-space: pre-wrap;">' + msg + '\n\n' + (stack || '') + '</pre></div>';
+      }
+      window.addEventListener('error', function(e) {
+        showError(e.message, e.error ? e.error.stack : '');
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        showError(e.reason ? e.reason.message || e.reason : 'Unhandled Rejection', e.reason ? e.reason.stack : '');
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
+    <script nomodule>
+      document.body.innerHTML = '<div style="padding: 20px; color: red; font-family: sans-serif; background: white; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999;">' +
+        '<h1>Browser Not Supported</h1><p>Your browser does not support modern JavaScript modules. Please update your browser to use this application.</p></div>';
+    </script>
   </body>
 </html>
 
