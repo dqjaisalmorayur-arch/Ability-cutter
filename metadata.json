@@ -1,5 +1,5 @@
 {
   "name": "Ability Computer Learning",
-  "description": "An accessible computer learning platform for visually impaired children with multi-language support and AI voice guidance.",
+  "description": "An accessible computer learning platform by Ability Foundation for the Disabled, Pulikkal. Specifically designed for visually impaired children with descriptive lessons, screen reader optimization, and AI-powered content generation.",
   "requestFramePermissions": ["microphone"]
 }

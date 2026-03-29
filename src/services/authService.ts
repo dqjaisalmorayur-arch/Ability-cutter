@@ -12,6 +12,7 @@ import {
   doc, 
   getDoc, 
   setDoc, 
+  updateDoc,
   serverTimestamp 
 } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../firebase';
@@ -60,7 +61,7 @@ export const authService = {
       role: user.email === 'dqjaisalmorayur@gmail.com' ? 'admin' : 'student',
       age: profileData.age,
       phone: profileData.phone,
-      preferredLanguage: profileData.preferredLanguage || 'ml',
+      preferredLanguage: profileData.preferredLanguage || 'en',
       preferredScreenReader: profileData.preferredScreenReader || 'nvda'
     };
 
@@ -86,7 +87,7 @@ export const authService = {
         email: user.email || '',
         fullName: user.displayName || user.email?.split('@')[0] || 'User',
         role: user.email === 'dqjaisalmorayur@gmail.com' ? 'admin' : 'student',
-        preferredLanguage: 'ml',
+        preferredLanguage: 'en',
         preferredScreenReader: 'nvda'
       };
       
@@ -118,5 +119,19 @@ export const authService = {
         callback(null);
       }
     });
+  },
+
+  // Update user profile
+  updateUserProfile: async (uid: string, data: Partial<UserProfile>): Promise<void> => {
+    try {
+      const docRef = doc(db, 'users', uid);
+      await updateDoc(docRef, {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
   }
 };

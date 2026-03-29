@@ -69,6 +69,21 @@
         "imageUrl": { "type": "string" }
       },
       "required": ["category", "level", "title", "lessons", "quiz"]
+    },
+    "UserProgress": {
+      "title": "User Progress",
+      "description": "Tracks a student's progress in a module",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "moduleId": { "type": "string" },
+        "completedLessons": { "type": "array", "items": { "type": "string" } },
+        "quizCompleted": { "type": "boolean" },
+        "quizScore": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "moduleId", "completedLessons", "quizCompleted", "lastUpdated"]
     }
   },
   "firestore": {
@@ -83,6 +98,10 @@
     "/quiz_results/{resultId}": {
       "schema": "QuizResult",
       "description": "Student quiz results."
+    },
+    "/user_progress/{progressId}": {
+      "schema": "UserProgress",
+      "description": "User progress documents."
     }
   }
 }

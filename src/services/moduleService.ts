@@ -9,13 +9,16 @@ import {
   orderBy,
   serverTimestamp,
   onSnapshot,
-  getDoc
+  getDoc,
+  setDoc,
+  where
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { Module, QuizResult } from '../types';
+import { Module, QuizResult, UserProgress } from '../types';
 
 const COLLECTION_NAME = 'modules';
 const RESULTS_COLLECTION = 'quiz_results';
+const PROGRESS_COLLECTION = 'user_progress';
 
 enum OperationType {
   CREATE = 'create',
@@ -163,6 +166,91 @@ export const moduleService = {
       },
       (error) => {
         handleFirestoreError(error, OperationType.GET, RESULTS_COLLECTION);
+      }
+    );
+  },
+
+  // Subscribe to registered users (for admin)
+  subscribeToUsers: (callback: (users: any[]) => void) => {
+    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, 
+      (snapshot) => {
+        const users = snapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
+        }));
+        callback(users);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, 'users');
+      }
+    );
+  },
+
+  // Update user progress
+  updateUserProgress: async (userId: string, moduleId: string, lessonId?: string, quizScore?: number): Promise<void> => {
+    try {
+      const docId = `${userId}_${moduleId}`;
+      const docRef = doc(db, PROGRESS_COLLECTION, docId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data() as UserProgress;
+        const updates: any = {
+          lastUpdated: serverTimestamp()
+        };
+
+        if (lessonId && !data.completedLessons.includes(lessonId)) {
+          updates.completedLessons = [...data.completedLessons, lessonId];
+        }
+
+        if (quizScore !== undefined) {
+          updates.quizCompleted = true;
+          updates.quizScore = quizScore;
+        }
+
+        await updateDoc(docRef, updates);
+      } else {
+        const newData = {
+          userId,
+          moduleId,
+          completedLessons: lessonId ? [lessonId] : [],
+          quizCompleted: quizScore !== undefined,
+          quizScore: quizScore || 0,
+          lastUpdated: serverTimestamp()
+        };
+        await setDoc(docRef, newData);
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, PROGRESS_COLLECTION);
+    }
+  },
+
+  // Subscribe to user progress for a specific user
+  subscribeToUserProgress: (userId: string, callback: (progress: UserProgress[]) => void) => {
+    const q = query(collection(db, PROGRESS_COLLECTION), where('userId', '==', userId));
+    return onSnapshot(q, 
+      (snapshot) => {
+        const progress = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserProgress));
+        callback(progress);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, PROGRESS_COLLECTION);
+      }
+    );
+  },
+
+  // Subscribe to all user progress (for admin)
+  subscribeToAllProgress: (callback: (progress: UserProgress[]) => void) => {
+    const q = query(collection(db, PROGRESS_COLLECTION));
+    return onSnapshot(q, 
+      (snapshot) => {
+        const progress = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserProgress));
+        callback(progress);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, PROGRESS_COLLECTION);
       }
     );
   }

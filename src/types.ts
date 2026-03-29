@@ -55,9 +55,10 @@ export interface UserProgress {
   id?: string;
   userId: string;
   moduleId: string;
-  status: 'locked' | 'in-progress' | 'completed';
-  quizAttempts: number;
-  lastAttemptCorrect?: boolean;
+  completedLessons: string[];
+  quizCompleted: boolean;
+  quizScore?: number;
+  lastUpdated: string;
 }
 
 export interface QuizResult {

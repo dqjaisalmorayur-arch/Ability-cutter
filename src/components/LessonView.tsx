@@ -2,32 +2,35 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Module, Language } from '../types';
 import { ChevronLeft, Play, Volume2, ArrowRight, Pause, Music, CheckCircle } from 'lucide-react';
 import { speakText, stopSpeaking } from '../services/geminiService';
+import { moduleService } from '../services/moduleService';
 
 interface LessonViewProps {
   module: Module;
+  userId: string;
   language: Language;
   onStartQuiz: () => void;
   onBack: () => void;
 }
 
-export default function LessonView({ module, language, onStartQuiz, onBack }: LessonViewProps) {
+export default function LessonView({ module, userId, language, onStartQuiz, onBack }: LessonViewProps) {
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const lesson = module.lessons[currentLessonIndex];
+
+  useEffect(() => {
+    // Mark current lesson as completed
+    if (userId && module.id && lesson.id) {
+      moduleService.updateUserProgress(userId, module.id, lesson.id);
+    }
+  }, [currentLessonIndex, module.id, lesson.id, userId]);
+
   const lessonTitle = lesson.title[language] || lesson.title['en'] || '';
   const lessonContent = lesson.content[language] || lesson.content['en'] || '';
 
-  const handleSpeak = () => {
-    speakText(`${lessonTitle}. ${lessonContent}`, language);
-  };
-
   const toggleAudio = () => {
-    if (!lesson.audioUrl) {
-      handleSpeak();
-      return;
-    }
+    if (!lesson.audioUrl) return;
 
     if (!audioRef.current) {
       audioRef.current = new Audio(lesson.audioUrl);
@@ -38,7 +41,6 @@ export default function LessonView({ module, language, onStartQuiz, onBack }: Le
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      stopSpeaking(); // Stop any TTS before playing audio file
       audioRef.current.src = lesson.audioUrl;
       audioRef.current.play();
       setIsPlaying(true);
@@ -52,118 +54,120 @@ export default function LessonView({ module, language, onStartQuiz, onBack }: Le
       audioRef.current.currentTime = 0;
     }
     setIsPlaying(false);
-    stopSpeaking();
-
-    // Automatically read title when lesson loads
-    speakText(lessonTitle, language);
 
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      stopSpeaking();
     };
   }, [currentLessonIndex, language]);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700" role="main">
-      <div className="flex items-center justify-between">
+    <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in slide-in-from-right-8 duration-700" role="main">
+      <div className="flex items-center justify-between px-4">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-zinc-500 hover:text-coral font-black uppercase tracking-widest transition-all group focus:outline-none focus:ring-2 focus:ring-coral rounded-lg p-1"
+          className="flex items-center gap-3 text-zinc-400 hover:text-ability-blue font-bold uppercase tracking-[0.2em] text-[10px] transition-all group focus:outline-none focus:ring-2 focus:ring-ability-blue rounded-lg p-2"
           aria-label={language === 'ml' ? 'തിരികെ പോവുക' : 'Go back'}
         >
-          <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          <span>{language === 'ml' ? 'തിരികെ' : 'Back'}</span>
+          <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span>{language === 'ml' ? 'തിരികെ' : 'Back to Library'}</span>
         </button>
 
-        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-zinc-600">
-          <span className="px-3 py-1 bg-ink-light rounded-full border border-white/5">
-            {language === 'ml' ? 'പാഠം' : 'Lesson'} {currentLessonIndex + 1} / {module.lessons.length}
+        <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
+          <span className="px-5 py-2 bg-white rounded-full border border-black/5 shadow-sm">
+            {language === 'ml' ? 'പാഠം' : 'Chapter'} {currentLessonIndex + 1} / {module.lessons.length}
           </span>
         </div>
       </div>
 
       <div className="relative group">
-        {/* Atmospheric Glow */}
-        <div className="absolute -inset-4 bg-coral/5 blur-3xl rounded-[3rem] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" aria-hidden="true" />
+        {/* Decorative Book Spine Effect */}
+        <div className="absolute -left-4 top-10 bottom-10 w-8 bg-ability-blue/10 rounded-l-3xl blur-xl -z-10" aria-hidden="true" />
         
-        <div className="relative bg-ink-light rounded-[2.5rem] border-2 border-white/5 overflow-hidden shadow-2xl transition-all duration-500 hover:border-coral/30">
-          <article className="p-10 md:p-16 space-y-12">
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-              <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-coral/10 border border-coral/20 text-coral text-xs font-black uppercase tracking-[0.2em]">
-                  {module.title[language] || module.title['en']}
-                </div>
-                <h2 className="text-5xl md:text-7xl font-black text-white leading-tight tracking-tighter" id="lesson-title">
-                  {lessonTitle}
-                </h2>
+        <div className="relative bg-white rounded-[3rem] border border-black/5 overflow-hidden shadow-2xl transition-all duration-500 hover:border-ability-blue/20">
+          <article className="p-12 md:p-24 space-y-16">
+            <header className="space-y-6 border-b border-black/5 pb-12">
+              <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-ability-blue/5 border border-ability-blue/10 text-ability-blue text-[10px] font-bold uppercase tracking-[0.3em]">
+                {module.title[language] || module.title['en']}
               </div>
+              <h2 className="text-5xl md:text-7xl font-serif font-bold text-ink leading-[1.1]" id="lesson-title">
+                {lessonTitle}
+              </h2>
             </header>
 
             <div className="relative">
-              <div className="absolute -left-8 top-0 bottom-0 w-1.5 bg-gradient-to-b from-coral to-transparent rounded-full opacity-50" aria-hidden="true" />
-              <div className="prose prose-invert max-w-none space-y-10">
-                <p className="text-3xl md:text-4xl text-white leading-relaxed font-bold tracking-tight" aria-labelledby="lesson-title">
-                  {lessonContent}
-                </p>
+              <div className="prose prose-zinc max-w-none space-y-10">
+                <div className="text-xl md:text-2xl text-zinc-600 leading-[1.6] font-medium space-y-8" aria-labelledby="lesson-title">
+                  {lessonContent.split('\n').map((para, i) => (
+                    para.trim() && <p key={i}>{para}</p>
+                  ))}
+                </div>
                 
                 {/* Integrated Audio Player */}
-                <div className="flex flex-wrap items-center gap-6 p-8 bg-black/40 backdrop-blur-sm rounded-[2rem] border border-white/5" role="toolbar" aria-label={language === 'ml' ? 'ഓഡിയോ നിയന്ത്രണങ്ങൾ' : 'Audio Controls'}>
-                  <button
-                    onClick={toggleAudio}
-                    aria-pressed={isPlaying}
-                    className={`flex items-center gap-4 px-10 py-5 rounded-2xl font-black uppercase tracking-widest transition-all focus:outline-none focus:ring-4 focus:ring-coral/50 shadow-xl active:scale-95 ${
-                      isPlaying 
-                        ? 'bg-coral text-ink ring-4 ring-coral/20' 
-                        : 'bg-white/10 text-white hover:bg-coral hover:text-ink hover:shadow-coral/20'
-                    }`}
-                  >
-                    {isPlaying ? <Pause className="w-8 h-8" aria-hidden="true" /> : <Play className="w-8 h-8" aria-hidden="true" />}
-                    <span className="text-xl">{isPlaying ? (language === 'ml' ? 'നിർത്തുക' : 'Stop') : (language === 'ml' ? 'കേൾക്കാം' : 'Listen')}</span>
-                  </button>
-                  
-                  <button
-                    onClick={handleSpeak}
-                    className="flex items-center gap-4 px-10 py-5 bg-white/5 text-coral rounded-2xl font-black uppercase tracking-widest border border-white/5 hover:bg-white/10 hover:text-coral-dark transition-all focus:outline-none focus:ring-4 focus:ring-coral/50 shadow-xl active:scale-95"
-                  >
-                    <Volume2 className="w-8 h-8" aria-hidden="true" />
-                    <span className="text-xl">{language === 'ml' ? 'വായിക്കുക' : 'Read Aloud'}</span>
-                  </button>
-                </div>
+                {lesson.audioUrl && (
+                  <div className="mt-12 p-8 bg-paper rounded-[2rem] border border-black/5 shadow-inner" role="toolbar" aria-label={language === 'ml' ? 'ഓഡിയോ നിയന്ത്രണങ്ങൾ' : 'Audio Controls'}>
+                    <div className="flex flex-col sm:flex-row items-center gap-8">
+                      <button
+                        onClick={toggleAudio}
+                        aria-pressed={isPlaying}
+                        className={`w-20 h-20 rounded-full flex items-center justify-center transition-all focus:outline-none focus:ring-4 focus:ring-ability-blue/30 shadow-xl active:scale-95 ${
+                          isPlaying 
+                            ? 'bg-ability-blue text-white' 
+                            : 'bg-white text-ability-blue border border-black/5 hover:bg-ability-blue hover:text-white'
+                        }`}
+                      >
+                        {isPlaying ? <Pause className="w-8 h-8" aria-hidden="true" /> : <Play className="w-8 h-8 ml-1" aria-hidden="true" />}
+                      </button>
+                      
+                      <div className="flex-1 space-y-3 w-full">
+                        <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                          <span>{isPlaying ? (language === 'ml' ? 'പ്ലേ ചെയ്യുന്നു' : 'Playing Audio') : (language === 'ml' ? 'ഓഡിയോ ലഭ്യമാണ്' : 'Audio Available')}</span>
+                          <span>{isPlaying ? 'Live' : 'Ready'}</span>
+                        </div>
+                        <div className="h-2 bg-black/5 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full bg-ability-blue transition-all duration-500 ${isPlaying ? 'animate-pulse w-full' : 'w-0'}`} 
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {lesson.videoUrl && (
               <div 
-                className="aspect-video bg-black rounded-3xl flex flex-col items-center justify-center border-2 border-dashed border-white/10 group cursor-pointer hover:border-coral transition-colors focus:outline-none focus:ring-4 focus:ring-coral"
+                className="aspect-video bg-paper rounded-[2.5rem] flex flex-col items-center justify-center border-2 border-dashed border-black/5 group cursor-pointer hover:border-ability-blue transition-all focus:outline-none focus:ring-4 focus:ring-ability-blue/20 shadow-inner overflow-hidden relative"
                 role="button"
                 tabIndex={0}
                 aria-label={language === 'ml' ? 'വീഡിയോ കാണുക' : 'Watch video'}
               >
-                <div className="w-20 h-20 bg-ink-light rounded-full flex items-center justify-center text-zinc-700 group-hover:text-coral transition-colors">
-                  <Play className="w-10 h-10 fill-current" aria-hidden="true" />
+                <div className="absolute inset-0 bg-gradient-to-br from-ability-blue/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-zinc-200 group-hover:text-ability-blue transition-all shadow-xl group-hover:scale-110 relative z-10">
+                  <Play className="w-10 h-10 fill-current ml-1" aria-hidden="true" />
                 </div>
-                <span className="mt-4 text-zinc-600 font-black uppercase tracking-widest text-xs">Video Content Available</span>
+                <span className="mt-6 text-zinc-400 font-bold uppercase tracking-[0.3em] text-[10px] relative z-10">Watch Educational Video</span>
               </div>
             )}
 
-            <footer className="pt-12 border-t border-white/5 flex flex-col sm:flex-row gap-6">
+            <footer className="pt-16 border-t border-black/5 flex flex-col sm:flex-row gap-8">
               {currentLessonIndex < module.lessons.length - 1 ? (
                 <button
                   onClick={() => setCurrentLessonIndex(prev => prev + 1)}
-                  className="flex-1 bg-white text-ink font-black py-8 rounded-[2rem] hover:bg-coral transition-all flex items-center justify-center gap-4 text-3xl shadow-2xl active:scale-95 focus:outline-none focus:ring-4 focus:ring-coral"
+                  className="flex-1 bg-white text-ink font-bold py-10 rounded-[2.5rem] border border-black/5 hover:bg-ability-blue hover:text-white transition-all flex items-center justify-center gap-6 text-4xl shadow-sm hover:shadow-2xl active:scale-95 focus:outline-none focus:ring-4 focus:ring-ability-blue/20 group"
                 >
-                  <span>{language === 'ml' ? 'അടുത്ത പാഠം' : 'Next Lesson'}</span>
-                  <ArrowRight className="w-10 h-10" aria-hidden="true" />
+                  <span>{language === 'ml' ? 'അടുത്ത പാഠം' : 'Next Chapter'}</span>
+                  <ArrowRight className="w-12 h-12 group-hover:translate-x-2 transition-transform" aria-hidden="true" />
                 </button>
               ) : (
                 <button
                   onClick={onStartQuiz}
-                  className="flex-1 bg-coral text-ink font-black py-8 rounded-[2rem] hover:bg-white transition-all flex items-center justify-center gap-4 text-3xl shadow-[0_0_50px_rgba(255,107,107,0.3)] active:scale-95 focus:outline-none focus:ring-4 focus:ring-coral"
+                  className="flex-1 bg-ability-blue text-white font-bold py-10 rounded-[2.5rem] hover:opacity-95 transition-all flex items-center justify-center gap-6 text-4xl shadow-2xl active:scale-95 focus:outline-none focus:ring-4 focus:ring-ability-blue/30"
                 >
-                  <span>{language === 'ml' ? 'പരീക്ഷ തുടങ്ങാം' : 'Start Final Quiz'}</span>
-                  <CheckCircle className="w-10 h-10" aria-hidden="true" />
+                  <span>{language === 'ml' ? 'പരീക്ഷ തുടങ്ങാം' : 'Take Final Quiz'}</span>
+                  <CheckCircle className="w-12 h-12" aria-hidden="true" />
                 </button>
               )}
             </footer>

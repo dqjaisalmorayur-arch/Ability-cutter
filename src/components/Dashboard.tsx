@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Module, Language, ScreenReader } from '../types';
+import { Module, Language, ScreenReader, UserProgress } from '../types';
 import { BookOpen, PlayCircle, Filter, Monitor, Globe, HelpCircle, ChevronRight, Star, Zap, Layout, Terminal, Cpu, Settings2 } from 'lucide-react';
 import { speakText } from '../services/geminiService';
 
 interface DashboardProps {
   modules: Module[];
+  userProgress: UserProgress[];
   language: Language;
   screenReader: ScreenReader;
   onSelectModule: (id: string) => void;
@@ -29,6 +30,7 @@ const SCREEN_READERS: { id: ScreenReader; name: string }[] = [
 
 export default function Dashboard({ 
   modules,
+  userProgress,
   language, 
   screenReader, 
   onSelectModule, 
@@ -37,6 +39,7 @@ export default function Dashboard({
 }: DashboardProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedLevel, setSelectedLevel] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -58,17 +61,12 @@ export default function Dashboard({
     return modules.filter(m => {
       const catMatch = selectedCategory === 'All' || m.category === selectedCategory;
       const levelMatch = selectedLevel === 'All' || m.level === selectedLevel;
-      return catMatch && levelMatch;
+      const searchMatch = searchQuery === '' || 
+        (m.title[language] || m.title.en).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (m.description[language] || m.description.en).toLowerCase().includes(searchQuery.toLowerCase());
+      return catMatch && levelMatch && searchMatch;
     });
-  }, [modules, selectedCategory, selectedLevel]);
-
-  const welcomeMsg = language === 'ml' 
-    ? 'എബിലിറ്റി ലേണിംഗിലേക്ക് സ്വാഗതം. നിങ്ങളുടെ പാഠങ്ങൾ തിരഞ്ഞെടുക്കാം.' 
-    : 'Welcome to Ability Learning. Select your lessons.';
-
-  useEffect(() => {
-    speakText(welcomeMsg, language);
-  }, [language]);
+  }, [modules, selectedCategory, selectedLevel, searchQuery, language]);
 
   const getCategoryIcon = (cat: string) => {
     switch (cat.toLowerCase()) {
@@ -82,79 +80,103 @@ export default function Dashboard({
     }
   };
 
+  const getModuleProgress = (moduleId: string) => {
+    const progress = userProgress.find(p => p.moduleId === moduleId);
+    if (!progress) return 0;
+    
+    const module = modules.find(m => m.id === moduleId);
+    if (!module) return 0;
+    
+    const totalItems = module.lessons.length + 1; // Lessons + Quiz
+    const completedItems = progress.completedLessons.length + (progress.quizCompleted ? 1 : 0);
+    
+    return Math.round((completedItems / totalItems) * 100);
+  };
+
   return (
     <div className="space-y-16 animate-in fade-in slide-in-from-bottom-6 duration-700" role="main">
       {/* Hero Section */}
       <section 
-        className="relative overflow-hidden rounded-[3.5rem] bg-ink-light border border-white/5 p-10 md:p-20"
+        className="relative overflow-hidden rounded-[2.5rem] bg-white border border-black/5 p-12 md:p-24 shadow-sm"
         aria-labelledby="hero-title"
       >
-        <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-coral/10 blur-[120px] rounded-full animate-pulse" aria-hidden="true" />
-        <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-96 h-96 bg-blue-500/10 blur-[120px] rounded-full" aria-hidden="true" />
+        <div className="absolute top-0 right-0 -mt-24 -mr-24 w-[32rem] h-[32rem] bg-ability-blue/5 blur-[140px] rounded-full animate-pulse" aria-hidden="true" />
+        <div className="absolute bottom-0 left-0 -mb-24 -ml-24 w-[32rem] h-[32rem] bg-blue-500/5 blur-[140px] rounded-full" aria-hidden="true" />
         
-        <div className="relative z-10 space-y-8">
-          <div className="inline-flex items-center gap-2 px-5 py-2 bg-coral/10 rounded-full border border-coral/20">
-            <Star className="w-4 h-4 text-coral fill-coral" aria-hidden="true" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-coral">
-              {language === 'ml' ? 'മികച്ച പഠനാനുഭവം' : 'Premium Learning Experience'}
-            </span>
+        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-16">
+          <div className="flex-1 space-y-10">
+            <div className="inline-flex items-center gap-3 px-6 py-2.5 bg-ability-blue/5 rounded-full border border-ability-blue/10">
+              <Star className="w-4 h-4 text-ability-blue fill-ability-blue" aria-hidden="true" />
+              <span className="text-[10px] font-bold uppercase tracking-[0.4em] text-ability-blue">
+                {language === 'ml' ? 'മികച്ച പഠനാനുഭവം' : 'Premium Learning Experience'}
+              </span>
+            </div>
+            <h1 id="hero-title" className="text-7xl md:text-9xl font-serif font-bold tracking-tight text-ink leading-[0.9]">
+              {language === 'ml' ? 'പഠനം തുടങ്ങാം' : "Let's Start Learning"}
+            </h1>
+            <p className="text-zinc-500 text-xl md:text-2xl max-w-2xl font-medium leading-relaxed">
+              {language === 'ml' 
+                ? 'ഏറ്റവും മികച്ച രീതിയിൽ കമ്പ്യൂട്ടർ പഠിക്കൂ. ലളിതമായ പാഠങ്ങളും ക്വിസ്സുകളും നിങ്ങളെ സഹായിക്കും.' 
+                : 'Master computer skills with ease. Simple lessons and interactive quizzes designed for everyone.'}
+            </p>
           </div>
-          <h1 id="hero-title" className="text-6xl md:text-9xl font-black tracking-tighter text-white leading-[0.85] uppercase">
-            {language === 'ml' ? 'പഠനം തുടങ്ങാം' : "Let's Start Learning"}
-          </h1>
-          <p className="text-zinc-400 text-xl md:text-3xl max-w-3xl font-medium leading-tight tracking-tight">
-            {language === 'ml' 
-              ? 'ഏറ്റവും മികച്ച രീതിയിൽ കമ്പ്യൂട്ടർ പഠിക്കൂ. ലളിതമായ പാഠങ്ങളും ക്വിസ്സുകളും നിങ്ങളെ സഹായിക്കും.' 
-              : 'Master computer skills with ease. Simple lessons and interactive quizzes designed for everyone.'}
-          </p>
+          <div className="hidden lg:block w-1/3 aspect-[3/4] bg-paper rounded-[2rem] border border-black/5 shadow-2xl relative overflow-hidden group rotate-3 hover:rotate-0 transition-all duration-700">
+            <img 
+              src="https://picsum.photos/seed/library/600/800" 
+              alt="" 
+              className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-ability-blue/20 to-transparent" />
+            <div className="absolute bottom-10 left-10 right-10">
+              <div className="p-6 bg-white/90 backdrop-blur-md rounded-2xl border border-black/5 shadow-xl">
+                <div className="text-[10px] font-bold text-ability-blue uppercase tracking-widest mb-2">Featured Course</div>
+                <div className="text-xl font-serif font-bold text-ink">Introduction to Digital Literacy</div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Settings & Filters Toggle */}
-      <nav className="flex flex-wrap items-center justify-between gap-6" aria-label={language === 'ml' ? 'ക്രമീകരണങ്ങളും ഫിൽട്ടറുകളും' : 'Settings and Filters'}>
-        <div className="flex items-center gap-4">
+      <nav className="flex flex-col lg:flex-row items-center justify-between gap-10" aria-label={language === 'ml' ? 'ക്രമീകരണങ്ങളും ഫിൽട്ടറുകളും' : 'Settings and Filters'}>
+        <div className="flex flex-col md:flex-row items-center gap-8 w-full lg:w-auto">
+          <div className="relative w-full md:w-[28rem] group">
+            <div className="absolute inset-y-0 left-8 flex items-center pointer-events-none">
+              <Filter className="w-5 h-5 text-zinc-400 group-focus-within:text-ability-blue transition-colors" />
+            </div>
+            <input 
+              type="text"
+              placeholder={language === 'ml' ? 'പാഠങ്ങൾ തിരയുക...' : 'Search modules...'}
+              className="w-full bg-white border border-black/5 rounded-3xl py-6 pl-16 pr-8 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-ability-blue/10 focus:border-ability-blue/30 transition-all placeholder:text-zinc-400 shadow-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
           <button
             onClick={() => setShowFilters(!showFilters)}
             aria-expanded={showFilters}
             aria-controls="settings-panel"
-            className={`flex items-center gap-3 px-10 py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all focus:outline-none focus:ring-4 focus:ring-coral/50 shadow-2xl ${
-              showFilters ? 'bg-coral text-ink scale-105' : 'bg-ink-light text-zinc-400 border border-white/5 hover:border-coral/50'
+            className={`flex items-center gap-4 px-12 py-6 rounded-3xl font-bold text-sm uppercase tracking-widest transition-all focus:outline-none focus:ring-4 focus:ring-ability-blue/20 shadow-sm w-full md:w-auto justify-center border ${
+              showFilters ? 'bg-ability-blue text-white border-ability-blue scale-105' : 'bg-white text-zinc-500 border-black/5 hover:border-ability-blue/30'
             }`}
           >
             <Settings2 className="w-5 h-5" aria-hidden="true" />
             <span>{language === 'ml' ? 'ക്രമീകരണങ്ങൾ' : 'Settings'}</span>
           </button>
-
-          {isDesktop && (
-            <div className="hidden lg:flex items-center gap-4 px-6 py-3 bg-black rounded-2xl border border-white/5 text-[10px] font-black uppercase tracking-widest text-zinc-500" aria-live="polite">
-              <div className="flex items-center gap-2">
-                <span className="text-coral">Alt + N</span>
-                <span>Next</span>
-              </div>
-              <div className="w-1 h-1 bg-zinc-800 rounded-full" />
-              <div className="flex items-center gap-2">
-                <span className="text-coral">Alt + R</span>
-                <span>Repeat</span>
-              </div>
-              <div className="w-1 h-1 bg-zinc-800 rounded-full" />
-              <div className="flex items-center gap-2">
-                <span className="text-coral">Alt + H</span>
-                <span>Home</span>
-              </div>
-            </div>
-          )}
         </div>
 
-        <div className="flex overflow-x-auto pb-2 gap-3 no-scrollbar max-w-full md:max-w-none" role="group" aria-label={language === 'ml' ? 'ലെവൽ തിരഞ്ഞെടുക്കുക' : 'Select Level'}>
+        <div className="flex overflow-x-auto pb-2 gap-4 no-scrollbar w-full lg:w-auto justify-start lg:justify-end" role="group" aria-label={language === 'ml' ? 'ലെവൽ തിരഞ്ഞെടുക്കുക' : 'Select Level'}>
           {['All', 'basic', 'advanced'].map((lvl) => (
             <button
               key={lvl}
               onClick={() => setSelectedLevel(lvl)}
               aria-pressed={selectedLevel === lvl}
-              className={`flex-shrink-0 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all focus:outline-none focus:ring-4 focus:ring-white/20 ${
+              className={`flex-shrink-0 px-10 py-5 rounded-[2rem] font-bold text-xs uppercase tracking-widest transition-all focus:outline-none focus:ring-4 focus:ring-ability-blue/10 border ${
                 selectedLevel === lvl 
-                  ? 'bg-white text-ink scale-105 shadow-2xl shadow-white/10' 
-                  : 'bg-ink-light text-zinc-500 hover:text-white border border-white/5'
+                  ? 'bg-ability-blue text-white border-ability-blue scale-105 shadow-xl shadow-ability-blue/20' 
+                  : 'bg-white text-zinc-500 hover:text-ability-blue border-black/5'
               }`}
             >
               {lvl === 'All' ? (language === 'ml' ? 'എല്ലാം' : 'All Levels') : lvl}
@@ -167,14 +189,14 @@ export default function Dashboard({
       {showFilters && (
         <div 
           id="settings-panel"
-          className="bg-black p-10 rounded-[3rem] border border-white/5 shadow-2xl animate-in zoom-in-95 duration-300"
+          className="bg-white p-10 rounded-[2rem] border border-black/5 shadow-xl animate-in zoom-in-95 duration-300"
           role="region"
           aria-label={language === 'ml' ? 'ക്രമീകരണ പാനൽ' : 'Settings Panel'}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
             {/* Screen Reader Filter */}
             <div className="space-y-4">
-              <label id="sr-label" className="flex items-center gap-2 text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em]">
+              <label id="sr-label" className="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-[0.3em]">
                 <Monitor className="w-3 h-3" aria-hidden="true" />
                 {language === 'ml' ? 'സ്ക്രീൻ റീഡർ' : 'Screen Reader'}
               </label>
@@ -185,8 +207,8 @@ export default function Dashboard({
                     onClick={() => onUpdateScreenReader(sr.id)}
                     role="radio"
                     aria-checked={screenReader === sr.id}
-                    className={`py-4 rounded-xl font-black text-xs transition-all focus:outline-none focus:ring-4 focus:ring-coral/50 ${
-                      screenReader === sr.id ? 'bg-coral text-ink' : 'bg-ink-light text-zinc-500 border border-white/5'
+                    className={`py-4 rounded-xl font-bold text-xs transition-all focus:outline-none focus:ring-4 focus:ring-ability-blue/10 ${
+                      screenReader === sr.id ? 'bg-ability-blue text-white' : 'bg-paper text-zinc-500 border border-black/5'
                     }`}
                   >
                     {sr.name}
@@ -197,7 +219,7 @@ export default function Dashboard({
 
             {/* Language Filter */}
             <div className="space-y-4">
-              <label id="lang-label" className="flex items-center gap-2 text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em]">
+              <label id="lang-label" className="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-[0.3em]">
                 <Globe className="w-3 h-3" aria-hidden="true" />
                 {language === 'ml' ? 'ഭാഷ' : 'Language'}
               </label>
@@ -208,32 +230,14 @@ export default function Dashboard({
                     onClick={() => onUpdateLanguage(lang.code)}
                     role="radio"
                     aria-checked={language === lang.code}
-                    className={`py-4 rounded-xl font-black text-xs transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/50 ${
-                      language === lang.code ? 'bg-blue-500 text-white' : 'bg-ink-light text-zinc-500 border border-white/5'
+                    className={`py-4 rounded-xl font-bold text-xs transition-all focus:outline-none focus:ring-4 focus:ring-ability-blue/10 ${
+                      language === lang.code ? 'bg-ability-blue text-white' : 'bg-paper text-zinc-500 border border-black/5'
                     }`}
                   >
                     {lang.name}
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* Audio Test */}
-            <div className="md:col-span-2 pt-10 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="space-y-2 text-center md:text-left">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">
-                  {language === 'ml' ? 'ഓഡിയോ പരിശോധന' : 'Audio Diagnostics'}
-                </p>
-                <p className="text-sm text-zinc-600 font-medium">
-                  {language === 'ml' ? 'ശബ്ദം കേൾക്കുന്നുണ്ടോ എന്ന് പരിശോധിക്കാം.' : 'Test if the audio system is working correctly.'}
-                </p>
-              </div>
-              <button
-                onClick={() => speakText(language === 'ml' ? 'ഓഡിയോ സിസ്റ്റം ശരിയായി പ്രവർത്തിക്കുന്നു.' : 'The audio system is working correctly.', language)}
-                className="w-full md:w-auto px-10 py-4 bg-ink-light text-coral rounded-2xl border border-white/5 hover:bg-coral hover:text-ink transition-all font-black text-xs uppercase tracking-widest focus:outline-none focus:ring-4 focus:ring-coral/50"
-              >
-                {language === 'ml' ? 'ശബ്ദം പരിശോധിക്കുക' : 'Test Audio'}
-              </button>
             </div>
           </div>
         </div>
@@ -247,10 +251,10 @@ export default function Dashboard({
             onClick={() => setSelectedCategory(cat)}
             role="tab"
             aria-selected={selectedCategory === cat}
-            className={`flex-shrink-0 px-10 py-5 rounded-[2rem] font-black text-sm transition-all flex items-center gap-4 focus:outline-none focus:ring-4 focus:ring-coral/50 ${
+            className={`flex-shrink-0 px-10 py-5 rounded-[2rem] font-bold text-sm transition-all flex items-center gap-4 focus:outline-none focus:ring-4 focus:ring-ability-blue/10 ${
               selectedCategory === cat 
-                ? 'bg-coral text-ink scale-105 shadow-2xl shadow-coral/20' 
-                : 'bg-ink-light text-zinc-400 hover:bg-zinc-900 border border-white/5'
+                ? 'bg-ability-blue text-white scale-105 shadow-lg shadow-ability-blue/20' 
+                : 'bg-white text-zinc-500 hover:bg-paper border border-black/5'
             }`}
           >
             {cat === 'All' ? <Zap className="w-5 h-5" aria-hidden="true" /> : getCategoryIcon(cat)}
@@ -264,14 +268,14 @@ export default function Dashboard({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           {filteredModules.length === 0 ? (
             <div className="col-span-full py-40 text-center space-y-8" role="status">
-              <div className="w-32 h-32 bg-ink-light rounded-full flex items-center justify-center mx-auto border border-white/5">
-                <HelpCircle className="w-16 h-16 text-zinc-800" aria-hidden="true" />
+              <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center mx-auto border border-black/5">
+                <HelpCircle className="w-16 h-16 text-zinc-200" aria-hidden="true" />
               </div>
               <div className="space-y-4">
-                <p className="text-zinc-500 font-black uppercase tracking-[0.2em] text-2xl">
+                <p className="text-zinc-400 font-bold uppercase tracking-[0.2em] text-2xl">
                   {language === 'ml' ? 'മൊഡ്യൂളുകൾ ഒന്നും ലഭ്യമല്ല' : 'No modules found'}
                 </p>
-                <p className="text-zinc-600 text-lg max-w-md mx-auto">
+                <p className="text-zinc-500 text-lg max-w-md mx-auto">
                   {language === 'ml' 
                     ? 'ദയവായി പേജ് റിഫ്രഷ് ചെയ്യുക അല്ലെങ്കിൽ അഡ്മിൻ പാനൽ പരിശോധിക്കുക.' 
                     : 'Please refresh the page or check the Admin Panel.'}
@@ -279,7 +283,7 @@ export default function Dashboard({
               </div>
               <button 
                 onClick={() => window.location.reload()}
-                className="px-12 py-4 bg-white/5 text-zinc-400 rounded-2xl font-black hover:text-coral transition-all border border-white/5 focus:outline-none focus:ring-4 focus:ring-coral"
+                className="px-12 py-4 bg-white text-zinc-500 rounded-2xl font-bold hover:text-ability-blue transition-all border border-black/5 focus:outline-none focus:ring-4 focus:ring-ability-blue/10"
               >
                 {language === 'ml' ? 'പുതുക്കുക' : 'Refresh Page'}
               </button>
@@ -289,67 +293,92 @@ export default function Dashboard({
               <button
                 key={m.id}
                 onClick={() => onSelectModule(m.id)}
-                onMouseEnter={() => speakText(m.title[language] || m.title['en'] || '', language)}
-                className="group relative flex flex-col text-left transition-all hover:-translate-y-4 active:scale-95 focus:outline-none focus:ring-4 focus:ring-coral rounded-[3.5rem]"
+                className="group relative flex flex-col text-left transition-all hover:-translate-y-3 active:scale-95 focus:outline-none focus:ring-4 focus:ring-ability-blue/20 rounded-[2.5rem] bg-white border border-black/5 overflow-hidden hover:border-ability-blue/30 shadow-sm hover:shadow-2xl"
                 aria-label={`${m.title[language] || m.title.en}. ${m.description ? (m.description[language] || m.description.en) : ''}`}
               >
-                <div className="absolute inset-0 bg-coral opacity-0 blur-[100px] group-hover:opacity-10 transition-opacity rounded-[3.5rem]" aria-hidden="true" />
-                
-                  <div className="relative flex-1 bg-ink-light border border-white/5 rounded-[3.5rem] p-12 space-y-10 overflow-hidden group-hover:border-coral/40 transition-all duration-500">
-                    {m.imageUrl && (
-                      <div className="absolute inset-0 z-0">
-                        <img 
-                          src={m.imageUrl} 
-                          alt="" 
-                          className="w-full h-full object-cover opacity-10 group-hover:opacity-20 transition-opacity duration-700"
-                          referrerPolicy="no-referrer"
-                          aria-hidden="true"
+                {/* Image Section */}
+                <div className="relative aspect-[4/5] overflow-hidden">
+                  <img 
+                    src={m.imageUrl || `https://picsum.photos/seed/${encodeURIComponent(m.title.en)}/800/1000`} 
+                    alt="" 
+                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                    referrerPolicy="no-referrer"
+                    aria-hidden="true"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  
+                  {/* Category Badge */}
+                  <div className="absolute top-8 left-8 flex items-center gap-4">
+                    <div className="p-4 bg-white/95 backdrop-blur-md rounded-2xl text-ability-blue border border-black/5 shadow-xl">
+                      {getCategoryIcon(m.category)}
+                    </div>
+                  </div>
+
+                  {/* Level Badge */}
+                  <div className="absolute top-8 right-8">
+                    <span className={`px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.3em] border shadow-xl backdrop-blur-md ${
+                      m.level === 'basic' 
+                        ? 'bg-emerald-50/90 text-emerald-600 border-emerald-100' 
+                        : 'bg-ability-blue/90 text-white border-ability-blue/20'
+                    }`}>
+                      {m.level}
+                    </span>
+                  </div>
+
+                  {/* Quick Action Overlay */}
+                  <div className="absolute bottom-8 left-8 right-8 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
+                    <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-black/5 shadow-2xl flex items-center justify-between">
+                      <span className="text-xs font-bold text-ability-blue uppercase tracking-widest">Start Learning</span>
+                      <ChevronRight className="w-5 h-5 text-ability-blue" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content Section */}
+                <div className="p-10 space-y-6 flex-1 flex flex-col bg-white">
+                  <div className="space-y-4 flex-1">
+                    <div className="flex items-start justify-between gap-4">
+                      <h3 className="text-3xl font-serif font-bold text-ink leading-tight group-hover:text-ability-blue transition-colors">
+                        {m.title[language] || m.title.en}
+                      </h3>
+                      {getModuleProgress(m.id) > 0 && (
+                        <span className="flex-shrink-0 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                          {getModuleProgress(m.id)}%
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Progress Bar */}
+                    {getModuleProgress(m.id) > 0 && (
+                      <div className="w-full h-1.5 bg-black/5 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-emerald-500 transition-all duration-1000" 
+                          style={{ width: `${getModuleProgress(m.id)}%` }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/80 to-transparent" aria-hidden="true" />
                       </div>
                     )}
-                    
-                    <div className="relative z-10 space-y-10">
-                      <div className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-coral shadow-2xl transform group-hover:rotate-12 group-hover:bg-coral group-hover:text-ink transition-all duration-500" aria-hidden="true">
-                        {getCategoryIcon(m.category)}
-                      </div>
 
-                      <div className="space-y-6">
-                        <div className="flex items-center gap-4">
-                          <span className="px-4 py-1.5 bg-coral/10 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-coral border border-coral/20">
-                            {m.level}
-                          </span>
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">
-                            {m.category}
-                          </span>
-                        </div>
-                        <h3 className="text-4xl font-black text-white leading-none group-hover:text-coral transition-colors uppercase tracking-tighter">
-                          {m.title[language] || m.title.en}
-                        </h3>
-                        {m.description && (
-                          <p className="text-zinc-500 text-lg font-medium leading-tight line-clamp-3 group-hover:text-zinc-300 transition-colors">
-                            {m.description[language] || m.description.en}
-                          </p>
-                        )}
-                      </div>
+                    {m.description && (
+                      <p className="text-zinc-500 text-base font-medium leading-relaxed line-clamp-2">
+                        {m.description[language] || m.description.en}
+                      </p>
+                    )}
+                  </div>
 
-                      <div className="pt-8 flex items-center justify-between border-t border-white/5">
-                        <div className="flex items-center gap-8 text-zinc-600">
-                          <div className="flex items-center gap-2">
-                            <BookOpen className="w-5 h-5" aria-hidden="true" />
-                            <span className="text-sm font-black">{m.lessons.length}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Star className="w-5 h-5" aria-hidden="true" />
-                            <span className="text-sm font-black">{m.quiz.length}</span>
-                          </div>
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-coral group-hover:text-ink transition-all duration-500 shadow-xl">
-                          <ChevronRight className="w-8 h-8" aria-hidden="true" />
-                        </div>
+                  {/* Footer Stats */}
+                  <div className="pt-8 flex items-center justify-between border-t border-black/5">
+                    <div className="flex items-center gap-8 text-zinc-400">
+                      <div className="flex items-center gap-2.5">
+                        <BookOpen className="w-4 h-4" aria-hidden="true" />
+                        <span className="text-xs font-bold tracking-tight">{m.lessons.length} Lessons</span>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <Star className="w-4 h-4" aria-hidden="true" />
+                        <span className="text-xs font-bold tracking-tight">{m.quiz.length} Questions</span>
                       </div>
                     </div>
                   </div>
+                </div>
               </button>
             ))
           )}
@@ -358,43 +387,90 @@ export default function Dashboard({
 
       {/* About Section */}
       <section 
-        className="mt-32 p-12 md:p-24 bg-ink-light rounded-[4rem] border border-white/5 space-y-12 relative overflow-hidden"
+        className="mt-32 p-12 md:p-24 bg-white rounded-[3rem] border border-black/5 space-y-16 relative overflow-hidden shadow-sm"
         aria-labelledby="about-title"
       >
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-coral to-transparent opacity-20" aria-hidden="true" />
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-ability-blue to-transparent opacity-20" aria-hidden="true" />
         
         <div className="flex flex-col lg:flex-row gap-20 items-center">
           <div className="flex-1 space-y-10">
-            <div className="space-y-4">
-              <span className="text-coral font-black text-xs uppercase tracking-[0.4em]">Organization</span>
-              <h2 id="about-title" className="text-5xl md:text-7xl font-black tracking-tighter uppercase leading-none">
-                {language === 'ml' ? 'എബിലിറ്റി ഫൗണ്ടേഷൻ പുളിക്കൽ' : 'Ability Foundation Pulikkal'}
-              </h2>
-            </div>
-            <p className="text-zinc-400 text-xl md:text-2xl leading-tight font-medium tracking-tight">
-              {language === 'ml' 
-                ? 'മലപ്പുറം ജില്ലയിലെ പുളിക്കൽ ആസ്ഥാനമായി പ്രവർത്തിക്കുന്ന എബിലിറ്റി ഫൗണ്ടേഷൻ, ഭിന്നശേഷിക്കാരുടെ ഉന്നമനത്തിനായി പ്രവർത്തിക്കുന്ന ഒരു പ്രമുഖ സംഘടനയാണ്. പ്രത്യേകിച്ച് കാഴ്ചാപരിമിതിയുള്ളവർക്കായി വിവിധ തൊഴിലധിഷ്ഠിത പരിശീലനങ്ങളും വിദ്യാഭ്യാസ പദ്ധതികളും ഇവർ നടപ്പിലാക്കുന്നു.' 
-                : 'Based in Pulikkal, Malappuram, Ability Foundation is a leading organization working for the empowerment of people with disabilities. They implement various vocational training and educational programs, especially for the visually impaired.'}
-            </p>
-            <div className="grid grid-cols-2 gap-6">
-              <div className="p-8 bg-black rounded-3xl border border-white/5">
-                <div className="text-coral font-black text-4xl mb-2">25+</div>
-                <div className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">Years of Service</div>
+            <div className="flex items-center gap-6">
+              <img 
+                src="https://abilityfoundation.org.in/wp-content/uploads/2021/03/Ability-Logo-1.png" 
+                alt="Ability Foundation Logo" 
+                className="h-20 w-auto object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/ability-logo/200/200';
+                }}
+              />
+              <div className="space-y-2">
+                <span className="text-ability-blue font-bold text-xs uppercase tracking-[0.4em]">Organization</span>
+                <h2 id="about-title" className="text-4xl md:text-5xl font-serif font-bold tracking-tight leading-tight">
+                  {language === 'ml' ? 'എബിലിറ്റി ഫൗണ്ടേഷൻ പുളിക്കൽ' : 'Ability Foundation Pulikkal'}
+                </h2>
               </div>
-              <div className="p-8 bg-black rounded-3xl border border-white/5">
-                <div className="text-blue-500 font-black text-4xl mb-2">1000+</div>
-                <div className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">Students Empowered</div>
+            </div>
+            <p className="text-zinc-500 text-xl leading-relaxed font-medium">
+              {language === 'ml' 
+                ? 'മലപ്പുറം ജില്ലയിലെ പുളിക്കൽ ആസ്ഥാനമായി പ്രവർത്തിക്കുന്ന എബിലിറ്റി ഫൗണ്ടേഷൻ ഫോർ ദ ഡിസേബിൾഡ് (Ability Foundation for the Disabled), ഭിന്നശേഷിക്കാരുടെ ഉന്നമനത്തിനായി പ്രവർത്തിക്കുന്ന ഒരു പ്രമുഖ സംഘടനയാണ്. പ്രത്യേകിച്ച് കാഴ്ചാപരിമിതിയുള്ളവർക്കായി വിവിധ തൊഴിലധിഷ്ഠിത പരിശീലനങ്ങളും വിദ്യാഭ്യാസ പദ്ധതികളും ഇവർ നടപ്പിലാക്കുന്നു. കമ്പ്യൂട്ടർ സാക്ഷരതയിലൂടെ അവരെ സ്വയംപര്യാപ്തരാക്കുക എന്നതാണ് ഈ പ്ലാറ്റ്‌ഫോമിന്റെ പ്രധാന ലക്ഷ്യം.' 
+                : 'Based in Pulikkal, Malappuram, Ability Foundation for the Disabled is a leading organization working for the empowerment of people with disabilities. They implement various vocational training and educational programs, especially for the visually impaired. The primary goal of this platform is to make them self-reliant through computer literacy.'}
+            </p>
+            
+            {/* Benefits Section */}
+            <div className="space-y-6">
+              <h3 className="text-2xl font-serif font-bold text-ink">
+                {language === 'ml' ? 'ഈ പ്ലാറ്റ്‌ഫോമിന്റെ ഗുണങ്ങൾ' : 'Benefits of this Platform'}
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {[
+                  { 
+                    en: 'Screen Reader Optimized', 
+                    ml: 'സ്ക്രീൻ റീഡർ സൗഹൃദം',
+                    desc: { en: 'Fully compatible with NVDA, JAWS, and Narrator.', ml: 'NVDA, JAWS, Narrator എന്നിവയുമായി പൂർണ്ണമായും പൊരുത്തപ്പെടുന്നു.' }
+                  },
+                  { 
+                    en: 'Descriptive Content', 
+                    ml: 'വിശദമായ പാഠങ്ങൾ',
+                    desc: { en: 'Lessons designed to be easily visualized through audio.', ml: 'ശബ്ദത്തിലൂടെ എളുപ്പത്തിൽ മനസ്സിലാക്കാവുന്ന രീതിയിലുള്ള പാഠങ്ങൾ.' }
+                  },
+                  { 
+                    en: 'Bilingual Support', 
+                    ml: 'ദ്വിഭാഷാ പിന്തുണ',
+                    desc: { en: 'Learn in both English and Malayalam seamlessly.', ml: 'ഇംഗ്ലീഷിലും മലയാളത്തിലും ഒരേപോലെ പഠിക്കാം.' }
+                  },
+                  { 
+                    en: 'Progress Tracking', 
+                    ml: 'പഠന പുരോഗതി',
+                    desc: { en: 'Monitor your learning journey with detailed stats.', ml: 'നിങ്ങളുടെ പഠന പുരോഗതി കൃത്യമായി മനസ്സിലാക്കാം.' }
+                  }
+                ].map((benefit, i) => (
+                  <div key={i} className="p-6 bg-paper rounded-2xl border border-black/5 space-y-2">
+                    <div className="text-ability-blue font-bold text-sm uppercase tracking-widest">{benefit[language]}</div>
+                    <div className="text-zinc-500 text-xs leading-relaxed">{benefit.desc[language]}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div className="p-8 bg-paper rounded-3xl border border-black/5">
+                <div className="text-ability-blue font-bold text-4xl mb-2">25+</div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">Years of Service</div>
+              </div>
+              <div className="p-8 bg-paper rounded-3xl border border-black/5">
+                <div className="text-blue-600 font-bold text-4xl mb-2">1000+</div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">Students Empowered</div>
               </div>
             </div>
           </div>
-          <div className="w-full lg:w-2/5 aspect-[4/5] rounded-[3rem] overflow-hidden border border-white/10 shadow-2xl relative group">
+          <div className="w-full lg:w-2/5 aspect-[4/5] rounded-[2rem] overflow-hidden border border-black/5 shadow-xl relative group">
             <img 
-              src="https://picsum.photos/seed/ability/800/1000" 
+              src="https://picsum.photos/seed/ability-foundation/800/1000" 
               alt="Ability Foundation Campus" 
               className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000"
               referrerPolicy="no-referrer"
             />
-            <div className="absolute inset-0 bg-coral/10 mix-blend-overlay group-hover:opacity-0 transition-opacity duration-1000" aria-hidden="true" />
+            <div className="absolute inset-0 bg-ability-blue/5 mix-blend-overlay group-hover:opacity-0 transition-opacity duration-1000" aria-hidden="true" />
           </div>
         </div>
       </section>

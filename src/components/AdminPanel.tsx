@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Module, Language, Lesson, Question, QuizResult } from '../types';
+import { Module, Language, Lesson, Question, QuizResult, UserProgress } from '../types';
 import { moduleService } from '../services/moduleService';
-import { generateModuleContent, generateQuizQuestions, generateFullModuleFromText, generateImage } from '../services/geminiService';
-import { Plus, Trash2, Save, X, ChevronDown, ChevronUp, Edit2, Users, BookOpen, Calendar, ChevronLeft, Sparkles, Loader2, FileText, Upload, Database, Info } from 'lucide-react';
+import { generateModuleContent, generateQuizQuestions, generateFullModuleFromText, generateImage, generateTitleFromImage } from '../services/geminiService';
+import { Plus, Trash2, Save, X, ChevronDown, ChevronUp, Edit2, Users, BookOpen, Calendar, ChevronLeft, Sparkles, Loader2, FileText, Upload, Database, Info, Music, Play, Pause, CheckCircle, Image as ImageIcon } from 'lucide-react';
 import * as mammoth from 'mammoth';
 import { MODULES } from '../constants';
-import firebaseConfig from '../../firebase-applet-config.json';
+import { storage } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface AdminPanelProps {
   modules: Module[];
@@ -14,8 +15,10 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ modules, language, onBack }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'modules' | 'results'>('modules');
+  const [activeTab, setActiveTab] = useState<'modules' | 'results' | 'students'>('modules');
   const [results, setResults] = useState<QuizResult[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [allProgress, setAllProgress] = useState<UserProgress[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Module>>({
@@ -36,6 +39,88 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState<number | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload an image file (jpg, png, etc.)');
+      return;
+    }
+
+    setUploadingImage(true);
+    setError(null);
+
+    try {
+      const storageRef = ref(storage, `modules/images/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      // Convert image to base64 for AI analysis
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Analyze image with AI to suggest title/description
+      const analysis = await generateTitleFromImage({ data: base64Data, mimeType: file.type });
+      
+      if (analysis) {
+        setFormData({
+          ...formData,
+          imageUrl: downloadURL,
+          title: analysis.title,
+          description: analysis.description,
+          category: analysis.category || formData.category
+        });
+      } else {
+        setFormData({ ...formData, imageUrl: downloadURL });
+      }
+    } catch (err) {
+      console.error('Image upload error:', err);
+      setError('Failed to upload image file. Please try again.');
+    } finally {
+      setUploadingImage(null);
+      e.target.value = '';
+    }
+  };
+
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>, lessonIndex: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('audio/')) {
+      setError('Please upload an audio file (mp3, wav, etc.)');
+      return;
+    }
+
+    setUploadingAudio(lessonIndex);
+    setError(null);
+
+    try {
+      const storageRef = ref(storage, `lessons/audio/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      const newLessons = [...(formData.lessons || [])];
+      newLessons[lessonIndex] = {
+        ...newLessons[lessonIndex],
+        audioUrl: downloadURL
+      };
+      setFormData({ ...formData, lessons: newLessons });
+    } catch (err) {
+      console.error('Audio upload error:', err);
+      setError('Failed to upload audio file. Please try again.');
+    } finally {
+      setUploadingAudio(null);
+      e.target.value = '';
+    }
+  };
 
   const handleAutoGenerate = async (field: 'module' | 'lesson', index?: number) => {
     let sourceText = '';
@@ -58,8 +143,6 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
           setFormData({
             ...formData,
             title: result.title,
-            // Optionally we could also generate a first lesson or something, 
-            // but let's stick to titles for the module level
           });
         } else if (field === 'lesson' && typeof index === 'number') {
           const newLessons = [...(formData.lessons || [])];
@@ -182,28 +265,6 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
           data: base64Data,
           mimeType: file.type || (extension === 'pdf' ? 'application/pdf' : 'image/jpeg')
         });
-      } else {
-        // Fallback for other file types: try reading as text
-        try {
-          const text = await file.text();
-          if (text.trim().length > 10) {
-            result = await generateFullModuleFromText(text);
-          } else {
-            throw new Error('Content too short');
-          }
-        } catch (e) {
-          // If text reading fails, try as base64/image
-          const base64Data = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve((reader.result as string).split(',')[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-          result = await generateFullModuleFromText(undefined, {
-            data: base64Data,
-            mimeType: file.type || 'application/octet-stream'
-          });
-        }
       }
 
       if (result) {
@@ -230,7 +291,6 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       setError('Failed to generate module from file. Please try again.');
     } finally {
       setIsGenerating(false);
-      // Reset input
       e.target.value = '';
     }
   };
@@ -241,6 +301,17 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
         setResults(data);
       });
       return () => unsubscribe();
+    } else if (activeTab === 'students') {
+      const unsubscribeUsers = moduleService.subscribeToUsers((data) => {
+        setUsers(data);
+      });
+      const unsubscribeProgress = moduleService.subscribeToAllProgress((data) => {
+        setAllProgress(data);
+      });
+      return () => {
+        unsubscribeUsers();
+        unsubscribeProgress();
+      };
     }
   }, [activeTab]);
 
@@ -250,12 +321,22 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       return;
     }
 
+    if (!formData.description?.en || !formData.description?.ml) {
+      setError('Please fill in both English and Malayalam descriptions');
+      return;
+    }
+
     try {
+      const finalData = { ...formData };
+      if (!finalData.imageUrl) {
+        finalData.imageUrl = `https://picsum.photos/seed/${encodeURIComponent(formData.title?.en || 'module')}/800/600`;
+      }
+
       if (editingId) {
-        await moduleService.updateModule(editingId, formData);
+        await moduleService.updateModule(editingId, finalData);
       } else {
         await moduleService.addModule({
-          ...formData as Omit<Module, 'id'>,
+          ...finalData as Omit<Module, 'id'>,
           order: modules.length
         });
       }
@@ -318,7 +399,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-stone-500 hover:text-emerald-500 font-black uppercase tracking-widest transition-all group"
+          className="flex items-center gap-2 text-zinc-400 hover:text-ability-blue font-bold uppercase tracking-widest transition-all group"
         >
           <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
           <span>{language === 'ml' ? 'തിരികെ പോവുക' : 'Back to Dashboard'}</span>
@@ -326,38 +407,45 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-stone-950 p-1 rounded-2xl border border-stone-800 w-fit">
+      <div className="flex bg-white p-1 rounded-2xl border border-black/5 w-fit shadow-sm">
         <button
           onClick={() => setActiveTab('modules')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'modules' ? 'bg-emerald-500 text-black' : 'text-stone-500 hover:text-white'}`}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'modules' ? 'bg-ability-blue text-white shadow-md' : 'text-zinc-400 hover:text-ink'}`}
         >
           <BookOpen className="w-4 h-4" />
           {language === 'ml' ? 'മൊഡ്യൂളുകൾ' : 'Modules'}
         </button>
         <button
           onClick={() => setActiveTab('results')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'results' ? 'bg-emerald-500 text-black' : 'text-stone-500 hover:text-white'}`}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'results' ? 'bg-ability-blue text-white shadow-md' : 'text-zinc-400 hover:text-ink'}`}
+        >
+          <FileText className="w-4 h-4" />
+          {language === 'ml' ? 'ഫലങ്ങൾ' : 'Results'}
+        </button>
+        <button
+          onClick={() => setActiveTab('students')}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'students' ? 'bg-ability-blue text-white shadow-md' : 'text-zinc-400 hover:text-ink'}`}
         >
           <Users className="w-4 h-4" />
-          {language === 'ml' ? 'ഫലങ്ങൾ' : 'Results'}
+          {language === 'ml' ? 'കുട്ടികൾ' : 'Students'}
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500 text-red-500 p-4 rounded-xl flex items-center justify-between">
-          <span>{error}</span>
+        <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl flex items-center justify-between shadow-sm">
+          <span className="font-medium">{error}</span>
           <button onClick={() => setError(null)}><X className="w-4 h-4" /></button>
         </div>
       )}
 
       {confirmDelete && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-stone-900 border-2 border-stone-800 p-8 rounded-[2rem] max-w-md w-full space-y-6">
-            <h3 className="text-2xl font-black">Delete Module?</h3>
-            <p className="text-stone-400">This action cannot be undone. All lessons and quizzes in this module will be lost.</p>
+        <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-black/5 p-8 rounded-[2rem] max-w-md w-full space-y-6 shadow-2xl">
+            <h3 className="text-2xl font-serif font-bold text-ink">Delete Module?</h3>
+            <p className="text-zinc-500">This action cannot be undone. All lessons and quizzes in this module will be lost.</p>
             <div className="flex gap-4">
-              <button onClick={() => setConfirmDelete(null)} className="flex-1 py-3 bg-stone-800 rounded-xl font-black">Cancel</button>
-              <button onClick={() => handleDelete(confirmDelete)} className="flex-1 py-3 bg-red-500 rounded-xl font-black">Delete</button>
+              <button onClick={() => setConfirmDelete(null)} className="flex-1 py-3 bg-paper rounded-xl font-bold text-zinc-600 hover:bg-zinc-100 transition-colors">Cancel</button>
+              <button onClick={() => handleDelete(confirmDelete)} className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition-colors">Delete</button>
             </div>
           </div>
         </div>
@@ -366,26 +454,75 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       {activeTab === 'modules' ? (
         <>
           <div className="flex items-center justify-between">
-            <h2 className="text-3xl font-black tracking-tighter">
+            <h2 className="text-3xl font-serif font-bold text-ink">
               {language === 'ml' ? 'മൊഡ്യൂളുകൾ നിയന്ത്രിക്കുക' : 'Manage Modules'}
             </h2>
             <div className="flex items-center gap-4">
-              <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-stone-950 rounded-xl border border-stone-800 text-[10px] font-black text-stone-600 uppercase tracking-widest">
-                <Info className="w-3 h-3" />
-                <span>Project: {firebaseConfig.projectId}</span>
-              </div>
               <button
                 onClick={handleSeedData}
                 disabled={isGenerating}
-                className="flex items-center gap-2 px-4 py-3 bg-stone-800 text-stone-400 rounded-2xl font-black hover:text-emerald-500 transition-all border border-stone-700 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-3 bg-white text-zinc-400 rounded-2xl font-bold hover:text-ability-blue transition-all border border-black/5 shadow-sm disabled:opacity-50"
                 title="Seed Initial Data"
               >
                 <Database className="w-5 h-5" />
                 <span className="hidden sm:inline">Seed Data</span>
               </button>
               <button
+                onClick={async () => {
+                  setIsGenerating(true);
+                  try {
+                    const modulesToFix = modules.filter(m => !m.imageUrl);
+                    for (const m of modulesToFix) {
+                      await moduleService.updateModule(m.id, {
+                        imageUrl: `https://picsum.photos/seed/${encodeURIComponent(m.title.en)}/800/600`
+                      });
+                    }
+                    alert(`Fixed images for ${modulesToFix.length} modules!`);
+                  } catch (err) {
+                    console.error('Error fixing images:', err);
+                    setError('Failed to fix module images.');
+                  } finally {
+                    setIsGenerating(false);
+                  }
+                }}
+                disabled={isGenerating}
+                className="flex items-center gap-2 px-4 py-3 bg-white text-zinc-400 rounded-2xl font-bold hover:text-ability-blue transition-all border border-black/5 shadow-sm disabled:opacity-50"
+                title="Fix Missing Images"
+              >
+                <Sparkles className="w-5 h-5" />
+                <span className="hidden sm:inline">Fix Images</span>
+              </button>
+              <button
+                onClick={async () => {
+                  setIsGenerating(true);
+                  try {
+                    const modulesToFix = modules.filter(m => !m.description?.en || !m.description?.ml);
+                    for (const m of modulesToFix) {
+                      const result = await generateModuleContent(m.title.en);
+                      if (result) {
+                        await moduleService.updateModule(m.id, {
+                          description: result.description || result.content // Fallback to content if description is missing
+                        });
+                      }
+                    }
+                    alert(`Fixed descriptions for ${modulesToFix.length} modules!`);
+                  } catch (err) {
+                    console.error('Error fixing descriptions:', err);
+                    setError('Failed to fix module descriptions.');
+                  } finally {
+                    setIsGenerating(false);
+                  }
+                }}
+                disabled={isGenerating}
+                className="flex items-center gap-2 px-4 py-3 bg-white text-zinc-400 rounded-2xl font-bold hover:text-ability-blue transition-all border border-black/5 shadow-sm disabled:opacity-50"
+                title="Fix Missing Descriptions"
+              >
+                <FileText className="w-5 h-5" />
+                <span className="hidden sm:inline">Fix Descriptions</span>
+              </button>
+              <button
                 onClick={() => setIsAdding(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-black rounded-2xl font-black hover:scale-105 transition-transform"
+                className="flex items-center gap-2 px-6 py-3 bg-ink text-white rounded-2xl font-bold hover:bg-ability-blue transition-all shadow-lg hover:scale-105"
               >
                 <Plus className="w-5 h-5" />
                 <span>{language === 'ml' ? 'പുതിയ മൊഡ്യൂൾ' : 'New Module'}</span>
@@ -394,28 +531,22 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
           </div>
 
           {(isAdding || editingId) && (
-            <div className="bg-stone-800/50 border-2 border-emerald-500/30 rounded-3xl p-8 space-y-8">
+            <div className="bg-white border border-black/5 rounded-3xl p-8 space-y-8 shadow-xl">
               {/* Quick Upload Option */}
               {!editingId && (
-                <div className="p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl space-y-4">
-                  <div className="flex items-center gap-3 text-emerald-500">
+                <div className="p-6 bg-ability-blue/5 border border-ability-blue/10 rounded-2xl space-y-4">
+                  <div className="flex items-center gap-3 text-ability-blue">
                     <Sparkles className="w-5 h-5" />
-                    <h3 className="font-black uppercase tracking-widest text-sm">
+                    <h3 className="font-bold uppercase tracking-widest text-sm">
                       {language === 'ml' ? 'ഫയലിൽ നിന്ന് ഓട്ടോമാറ്റിക് ആയി നിർമ്മിക്കുക' : 'Auto-Generate from File'}
                     </h3>
                   </div>
-                  <p className="text-stone-400 text-xs">
+                  <p className="text-zinc-500 text-xs">
                     {language === 'ml' 
                       ? 'നിങ്ങളുടെ ക്ലാസ്സ് നോട്ടുകൾ (PDF, Word, Text) അപ്‌ലോഡ് ചെയ്യുക. AI ഓട്ടോമാറ്റിക് ആയി മൊഡ്യൂൾ തയ്യാറാക്കും.' 
                       : 'Upload your class notes (PDF, Word, Text). AI will automatically prepare the module for you.'}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="px-2 py-1 bg-stone-800 text-[10px] text-stone-500 rounded-md border border-stone-700">.PDF</span>
-                    <span className="px-2 py-1 bg-stone-800 text-[10px] text-stone-500 rounded-md border border-stone-700">.DOCX</span>
-                    <span className="px-2 py-1 bg-stone-800 text-[10px] text-stone-500 rounded-md border border-stone-700">.TXT</span>
-                    <span className="px-2 py-1 bg-stone-800 text-[10px] text-stone-500 rounded-md border border-stone-700">.RTF</span>
-                  </div>
-                  <label className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 text-black rounded-xl font-black hover:bg-white transition-all cursor-pointer shadow-lg active:scale-95">
+                  <label className="inline-flex items-center gap-2 px-6 py-3 bg-ability-blue text-white rounded-xl font-bold hover:opacity-90 transition-all cursor-pointer shadow-md active:scale-95">
                     {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
                     <span>{language === 'ml' ? 'ഫയൽ തിരഞ്ഞെടുക്കുക' : 'Select File'}</span>
                     <input type="file" className="hidden" accept=".txt,.doc,.docx,.pdf,.rtf,.odt,.note" onChange={handleFileUpload} disabled={isGenerating} />
@@ -426,11 +557,11 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-black uppercase text-stone-500 tracking-widest">Title (English)</label>
+                    <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Title (English)</label>
                     <button
                       onClick={() => handleAutoGenerate('module')}
                       disabled={isGenerating}
-                      className="flex items-center gap-1 text-[10px] font-black uppercase text-emerald-500 hover:text-white transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1 text-[10px] font-bold uppercase text-ability-blue hover:opacity-70 transition-colors disabled:opacity-50"
                     >
                       {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                       Auto-Generate
@@ -440,79 +571,76 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
                     type="text"
                     value={formData.title?.en}
                     onChange={(e) => setFormData({ ...formData, title: { ...formData.title, en: e.target.value } })}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30"
                     placeholder="Enter English title"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase text-stone-500 tracking-widest">Title (Malayalam)</label>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Title (Malayalam)</label>
                   <input
                     type="text"
                     value={formData.title?.ml}
                     onChange={(e) => setFormData({ ...formData, title: { ...formData.title, ml: e.target.value } })}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase text-stone-500 tracking-widest">Description (English)</label>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Description (English)</label>
                   <textarea
                     value={formData.description?.en}
                     onChange={(e) => setFormData({ ...formData, description: { ...formData.description, en: e.target.value } })}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 h-20"
+                    className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30 h-20"
                     placeholder="Short description for dashboard"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase text-stone-500 tracking-widest">Description (Malayalam)</label>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Description (Malayalam)</label>
                   <textarea
                     value={formData.description?.ml}
                     onChange={(e) => setFormData({ ...formData, description: { ...formData.description, ml: e.target.value } })}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 h-20"
+                    className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30 h-20"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase text-stone-500 tracking-widest">Category</label>
-                  <div className="relative">
-                    <select
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 appearance-none"
-                    >
-                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                      <option value="Other">Other</option>
-                    </select>
-                    {formData.category === 'Other' && (
-                      <input
-                        type="text"
-                        placeholder="Enter Category Name"
-                        className="mt-2 w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500"
-                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      />
-                    )}
-                  </div>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Category</label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30 appearance-none"
+                  >
+                    {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase text-stone-500 tracking-widest">Level</label>
+                  <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Level</label>
                   <select
                     value={formData.level}
                     onChange={(e) => setFormData({ ...formData, level: e.target.value as any })}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30"
                   >
                     <option value="basic">Basic</option>
                     <option value="advanced">Advanced</option>
                   </select>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-black uppercase text-stone-500 tracking-widest">Image URL (Optional)</label>
-                    <button
-                      onClick={handleGenerateImage}
-                      disabled={isGenerating}
-                      className="flex items-center gap-1 text-[10px] font-black uppercase text-emerald-500 hover:text-white transition-colors disabled:opacity-50"
-                    >
-                      {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                      Generate with AI
-                    </button>
+                    <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Module Image</label>
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={handleGenerateImage}
+                        disabled={isGenerating || uploadingImage}
+                        className="flex items-center gap-1 text-[10px] font-bold uppercase text-ability-blue hover:opacity-70 transition-colors disabled:opacity-50"
+                      >
+                        {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                        Generate with AI
+                      </button>
+                      <label className="flex items-center gap-1 text-[10px] font-bold uppercase text-ability-blue hover:opacity-70 transition-colors cursor-pointer disabled:opacity-50">
+                        {uploadingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                        Upload Custom Photo
+                        <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage || isGenerating} />
+                      </label>
+                    </div>
                   </div>
                   <div className="flex gap-4 items-start">
                     <div className="flex-1 space-y-2">
@@ -520,307 +648,501 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
                         type="text"
                         value={formData.imageUrl || ''}
                         onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                        className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500"
-                        placeholder="e.g., https://picsum.photos/seed/desktop/800/600"
+                        className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30"
+                        placeholder="Image URL or upload a file"
                       />
-                      {formData.imageUrl && (
-                        <p className="text-[10px] text-stone-500 font-medium truncate max-w-xs">
-                          {formData.imageUrl.startsWith('data:') ? 'AI Generated Image (Base64)' : formData.imageUrl}
-                        </p>
-                      )}
+                      <p className="text-[10px] text-zinc-400 italic">
+                        {language === 'ml' 
+                          ? 'ഫോട്ടോ അപ്‌ലോഡ് ചെയ്താൽ ടൈറ്റിലും ഡിസ്ക്രിപ്ഷനും AI ഓട്ടോമാറ്റിക്കായി തയ്യാറാക്കും.' 
+                          : 'Uploading a photo will automatically suggest a title and description using AI.'}
+                      </p>
                     </div>
                     {formData.imageUrl && (
-                      <div className="w-24 h-24 rounded-xl border border-stone-700 overflow-hidden bg-stone-900 flex-shrink-0">
+                      <div className="w-32 h-32 rounded-2xl border border-black/5 overflow-hidden bg-paper flex-shrink-0 shadow-md group relative">
                         <img 
                           src={formData.imageUrl} 
                           alt="Preview" 
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
                         />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <ImageIcon className="text-white w-6 h-6" />
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <h4 className="text-sm font-black uppercase text-stone-500 tracking-widest">Lessons</h4>
-                {formData.lessons?.map((lesson, idx) => (
-                  <div key={idx} className="p-4 bg-stone-900 rounded-xl border border-stone-700 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase text-stone-600 tracking-widest">Lesson {idx + 1}</span>
-                      <button
-                        onClick={() => handleAutoGenerate('lesson', idx)}
-                        disabled={isGenerating}
-                        className="flex items-center gap-1 text-[10px] font-black uppercase text-emerald-500 hover:text-white transition-colors disabled:opacity-50"
-                      >
-                        {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                        Generate Content
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <input
-                        placeholder="Lesson Title (EN)"
-                        value={lesson.title.en}
-                        onChange={(e) => {
-                          const newLessons = [...(formData.lessons || [])];
-                          newLessons[idx] = { ...lesson, title: { ...lesson.title, en: e.target.value } };
-                          setFormData({ ...formData, lessons: newLessons });
-                        }}
-                        className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-sm"
-                      />
-                      <input
-                        placeholder="Lesson Title (ML)"
-                        value={lesson.title.ml}
-                        onChange={(e) => {
-                          const newLessons = [...(formData.lessons || [])];
-                          newLessons[idx] = { ...lesson, title: { ...lesson.title, ml: e.target.value } };
-                          setFormData({ ...formData, lessons: newLessons });
-                        }}
-                        className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-sm"
-                      />
-                    </div>
-                    <textarea
-                      placeholder="Lesson Content (EN)"
-                      value={lesson.content.en}
-                      onChange={(e) => {
-                        const newLessons = [...(formData.lessons || [])];
-                        newLessons[idx] = { ...lesson, content: { ...lesson.content, en: e.target.value } };
-                        setFormData({ ...formData, lessons: newLessons });
-                      }}
-                      className="w-full bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-sm h-20"
-                    />
-                    <textarea
-                      placeholder="Lesson Content (ML)"
-                      value={lesson.content.ml}
-                      onChange={(e) => {
-                        const newLessons = [...(formData.lessons || [])];
-                        newLessons[idx] = { ...lesson, content: { ...lesson.content, ml: e.target.value } };
-                        setFormData({ ...formData, lessons: newLessons });
-                      }}
-                      className="w-full bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-sm h-20"
-                    />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-stone-500 tracking-widest">Video URL</label>
-                        <input
-                          placeholder="e.g., https://youtube.com/..."
-                          value={lesson.videoUrl || ''}
-                          onChange={(e) => {
-                            const newLessons = [...(formData.lessons || [])];
-                            newLessons[idx] = { ...lesson, videoUrl: e.target.value };
-                            setFormData({ ...formData, lessons: newLessons });
-                          }}
-                          className="w-full bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-xs focus:border-emerald-500 outline-none"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-stone-500 tracking-widest">Audio URL</label>
-                        <input
-                          placeholder="e.g., https://example.com/audio.mp3"
-                          value={lesson.audioUrl || ''}
-                          onChange={(e) => {
-                            const newLessons = [...(formData.lessons || [])];
-                            newLessons[idx] = { ...lesson, audioUrl: e.target.value };
-                            setFormData({ ...formData, lessons: newLessons });
-                          }}
-                          className="w-full bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-xs focus:border-emerald-500 outline-none"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        const newLessons = formData.lessons?.filter((_, i) => i !== idx);
-                        setFormData({ ...formData, lessons: newLessons });
-                      }}
-                      className="text-red-500 text-xs font-black uppercase flex items-center gap-1"
-                    >
-                      <Trash2 className="w-3 h-3" /> Remove Lesson
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => setFormData({ ...formData, lessons: [...(formData.lessons || []), { id: Date.now().toString(), title: { en: '', ml: '' }, content: { en: '', ml: '' } }] })}
-                  className="w-full py-3 border-2 border-dashed border-stone-700 rounded-xl text-stone-500 hover:border-emerald-500 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Lesson
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-black uppercase text-stone-500 tracking-widest">Quiz Questions</h4>
+              {/* Lessons Section */}
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-black/5 pb-2">
+                  <h3 className="text-xl font-serif font-bold text-ink">Lessons</h3>
                   <button
-                    onClick={handleAutoGenerateQuiz}
-                    disabled={isGenerating}
-                    className="flex items-center gap-1 text-[10px] font-black uppercase text-emerald-500 hover:text-white transition-colors disabled:opacity-50"
+                    onClick={() => setFormData({ ...formData, lessons: [...(formData.lessons || []), { id: Date.now().toString(), title: { en: '', ml: '' }, content: { en: '', ml: '' } }] })}
+                    className="flex items-center gap-2 px-4 py-2 bg-paper text-ability-blue rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-ability-blue hover:text-white transition-all border border-black/5"
                   >
-                    {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                    Auto-Generate Quiz
+                    <Plus className="w-4 h-4" />
+                    Add Lesson
                   </button>
                 </div>
-                {formData.quiz?.map((q, idx) => (
-                  <div key={idx} className="p-4 bg-stone-900 rounded-xl border border-stone-700 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <input
-                        placeholder="Question (EN)"
-                        value={q.text.en}
-                        onChange={(e) => {
-                          const newQuiz = [...(formData.quiz || [])];
-                          newQuiz[idx] = { ...q, text: { ...q.text, en: e.target.value } };
-                          setFormData({ ...formData, quiz: newQuiz });
+                
+                <div className="space-y-6">
+                  {formData.lessons?.map((lesson, idx) => (
+                    <div key={idx} className="p-6 bg-paper border border-black/5 rounded-2xl space-y-6 relative group">
+                      <button
+                        onClick={() => {
+                          const newLessons = formData.lessons?.filter((_, i) => i !== idx);
+                          setFormData({ ...formData, lessons: newLessons });
                         }}
-                        className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-sm"
-                      />
-                      <input
-                        placeholder="Question (ML)"
-                        value={q.text.ml}
-                        onChange={(e) => {
-                          const newQuiz = [...(formData.quiz || [])];
-                          newQuiz[idx] = { ...q, text: { ...q.text, ml: e.target.value } };
-                          setFormData({ ...formData, quiz: newQuiz });
-                        }}
-                        className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-sm"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[0, 1, 2, 3].map(optIdx => (
-                        <input
-                          key={optIdx}
-                          placeholder={`Option ${optIdx + 1} (EN)`}
-                          value={q.options.en?.[optIdx] || ''}
-                          onChange={(e) => {
-                            const newQuiz = [...(formData.quiz || [])];
-                            const newOptions = [...(q.options.en || [])];
-                            newOptions[optIdx] = e.target.value;
-                            newQuiz[idx] = { ...q, options: { ...q.options, en: newOptions } };
-                            setFormData({ ...formData, quiz: newQuiz });
-                          }}
-                          className="bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-xs"
-                        />
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <span className="text-xs font-black uppercase text-stone-500">Correct Index (0-3):</span>
-                        <input
-                          type="number"
-                          min="0"
-                          max="3"
-                          value={q.correctIndex}
-                          onChange={(e) => {
-                            const newQuiz = [...(formData.quiz || [])];
-                            newQuiz[idx] = { ...q, correctIndex: parseInt(e.target.value) };
-                            setFormData({ ...formData, quiz: newQuiz });
-                          }}
-                          className="w-16 bg-stone-800 border border-stone-700 rounded-lg px-3 py-2 text-sm"
-                        />
+                        className="absolute top-4 right-4 p-2 text-zinc-300 hover:text-red-500 transition-colors"
+                        title="Remove Lesson"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-ability-blue/10 text-ability-blue rounded-lg flex items-center justify-center font-bold text-sm">
+                          {idx + 1}
+                        </div>
+                        <h4 className="font-bold text-ink">Lesson Details</h4>
+                        <button
+                          onClick={() => handleAutoGenerate('lesson', idx)}
+                          disabled={isGenerating}
+                          className="ml-auto flex items-center gap-1 text-[10px] font-bold uppercase text-ability-blue hover:opacity-70 transition-colors disabled:opacity-50"
+                        >
+                          {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                          Generate Content
+                        </button>
                       </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Title (EN)</label>
+                          <input
+                            value={lesson.title.en}
+                            onChange={(e) => {
+                              const newLessons = [...(formData.lessons || [])];
+                              newLessons[idx] = { ...lesson, title: { ...lesson.title, en: e.target.value } };
+                              setFormData({ ...formData, lessons: newLessons });
+                            }}
+                            className="w-full bg-white border border-black/5 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-ability-blue/30"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Title (ML)</label>
+                          <input
+                            value={lesson.title.ml}
+                            onChange={(e) => {
+                              const newLessons = [...(formData.lessons || [])];
+                              newLessons[idx] = { ...lesson, title: { ...lesson.title, ml: e.target.value } };
+                              setFormData({ ...formData, lessons: newLessons });
+                            }}
+                            className="w-full bg-white border border-black/5 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-ability-blue/30"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Content (EN)</label>
+                          <textarea
+                            value={lesson.content.en}
+                            onChange={(e) => {
+                              const newLessons = [...(formData.lessons || [])];
+                              newLessons[idx] = { ...lesson, content: { ...lesson.content, en: e.target.value } };
+                              setFormData({ ...formData, lessons: newLessons });
+                            }}
+                            className="w-full bg-white border border-black/5 rounded-xl px-4 py-2 text-sm h-32 focus:outline-none focus:border-ability-blue/30"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Content (ML)</label>
+                          <textarea
+                            value={lesson.content.ml}
+                            onChange={(e) => {
+                              const newLessons = [...(formData.lessons || [])];
+                              newLessons[idx] = { ...lesson, content: { ...lesson.content, ml: e.target.value } };
+                              setFormData({ ...formData, lessons: newLessons });
+                            }}
+                            className="w-full bg-white border border-black/5 rounded-xl px-4 py-2 text-sm h-32 focus:outline-none focus:border-ability-blue/30"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest flex items-center gap-2">
+                            <Play className="w-3 h-3" /> Video URL
+                          </label>
+                          <input
+                            placeholder="YouTube URL"
+                            value={lesson.videoUrl || ''}
+                            onChange={(e) => {
+                              const newLessons = [...(formData.lessons || [])];
+                              newLessons[idx] = { ...lesson, videoUrl: e.target.value };
+                              setFormData({ ...formData, lessons: newLessons });
+                            }}
+                            className="w-full bg-white border border-black/5 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-ability-blue/30"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest flex items-center justify-between">
+                            <span className="flex items-center gap-2"><Music className="w-3 h-3" /> Audio File</span>
+                            {lesson.audioUrl && <span className="text-ability-blue flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Ready</span>}
+                          </label>
+                          <div className="flex gap-2">
+                            <label className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl border-2 border-dashed transition-all cursor-pointer ${lesson.audioUrl ? 'border-ability-blue/30 bg-ability-blue/5 text-ability-blue' : 'border-black/5 bg-white text-zinc-400 hover:border-ability-blue/30'}`}>
+                              {uploadingAudio === idx ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                              <span className="text-[10px] font-bold uppercase tracking-widest">{lesson.audioUrl ? 'Change Audio' : 'Upload Audio'}</span>
+                              <input type="file" className="hidden" accept="audio/*" onChange={(e) => handleAudioUpload(e, idx)} disabled={uploadingAudio !== null} />
+                            </label>
+                            {lesson.audioUrl && (
+                              <button
+                                onClick={() => new Audio(lesson.audioUrl).play()}
+                                className="p-2 bg-ability-blue text-white rounded-xl hover:opacity-90 transition-all"
+                              >
+                                <Play className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quiz Section */}
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-black/5 pb-2">
+                  <h3 className="text-xl font-serif font-bold text-ink">Quiz Questions</h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleAutoGenerateQuiz}
+                      disabled={isGenerating}
+                      className="flex items-center gap-2 px-4 py-2 bg-ability-blue/5 text-ability-blue rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-ability-blue/10 transition-all border border-ability-blue/10"
+                    >
+                      {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      Generate Quiz
+                    </button>
+                    <button
+                      onClick={() => setFormData({ ...formData, quiz: [...(formData.quiz || []), { id: Date.now().toString(), text: { en: '', ml: '' }, options: { en: ['', '', '', ''], ml: ['', '', '', ''] }, correctIndex: 0 }] })}
+                      className="flex items-center gap-2 px-4 py-2 bg-paper text-ability-blue rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-ability-blue hover:text-white transition-all border border-black/5"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Question
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {formData.quiz?.map((q, idx) => (
+                    <div key={idx} className="p-6 bg-paper border border-black/5 rounded-2xl space-y-6 relative group">
                       <button
                         onClick={() => {
                           const newQuiz = formData.quiz?.filter((_, i) => i !== idx);
                           setFormData({ ...formData, quiz: newQuiz });
                         }}
-                        className="text-red-500 text-xs font-black uppercase flex items-center gap-1"
+                        className="absolute top-4 right-4 p-2 text-zinc-300 hover:text-red-500 transition-colors"
                       >
-                        <Trash2 className="w-3 h-3" /> Remove Question
+                        <Trash2 className="w-5 h-5" />
                       </button>
+
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-ability-blue/10 text-ability-blue rounded-lg flex items-center justify-center font-bold text-sm">
+                          Q{idx + 1}
+                        </div>
+                        <h4 className="font-bold text-ink">Question Details</h4>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Question (EN)</label>
+                          <input
+                            value={q.text.en}
+                            onChange={(e) => {
+                              const newQuiz = [...(formData.quiz || [])];
+                              newQuiz[idx] = { ...q, text: { ...q.text, en: e.target.value } };
+                              setFormData({ ...formData, quiz: newQuiz });
+                            }}
+                            className="w-full bg-white border border-black/5 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-ability-blue/30"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Question (ML)</label>
+                          <input
+                            value={q.text.ml}
+                            onChange={(e) => {
+                              const newQuiz = [...(formData.quiz || [])];
+                              newQuiz[idx] = { ...q, text: { ...q.text, ml: e.target.value } };
+                              setFormData({ ...formData, quiz: newQuiz });
+                            }}
+                            className="w-full bg-white border border-black/5 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-ability-blue/30"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Options (EN)</label>
+                          {[0, 1, 2, 3].map(optIdx => (
+                            <div key={optIdx} className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                checked={q.correctIndex === optIdx}
+                                onChange={() => {
+                                  const newQuiz = [...(formData.quiz || [])];
+                                  newQuiz[idx] = { ...q, correctIndex: optIdx };
+                                  setFormData({ ...formData, quiz: newQuiz });
+                                }}
+                                className="w-4 h-4 text-ability-blue focus:ring-ability-blue"
+                              />
+                              <input
+                                placeholder={`Option ${optIdx + 1}`}
+                                value={q.options.en?.[optIdx] || ''}
+                                onChange={(e) => {
+                                  const newQuiz = [...(formData.quiz || [])];
+                                  const newOptions = [...(q.options.en || ['', '', '', ''])];
+                                  newOptions[optIdx] = e.target.value;
+                                  newQuiz[idx] = { ...q, options: { ...q.options, en: newOptions } };
+                                  setFormData({ ...formData, quiz: newQuiz });
+                                }}
+                                className="flex-1 bg-white border border-black/5 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-ability-blue/30"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Options (ML)</label>
+                          {[0, 1, 2, 3].map(optIdx => (
+                            <div key={optIdx} className="flex items-center gap-2">
+                              <div className={`w-4 h-4 rounded-full border-2 ${q.correctIndex === optIdx ? 'border-ability-blue bg-ability-blue' : 'border-black/5'}`} />
+                              <input
+                                placeholder={`ഓപ്ഷൻ ${optIdx + 1}`}
+                                value={q.options.ml?.[optIdx] || ''}
+                                onChange={(e) => {
+                                  const newQuiz = [...(formData.quiz || [])];
+                                  const newOptions = [...(q.options.ml || ['', '', '', ''])];
+                                  newOptions[optIdx] = e.target.value;
+                                  newQuiz[idx] = { ...q, options: { ...q.options, ml: newOptions } };
+                                  setFormData({ ...formData, quiz: newQuiz });
+                                }}
+                                className="flex-1 bg-white border border-black/5 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-ability-blue/30"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
-                <button
-                  onClick={() => setFormData({ ...formData, quiz: [...(formData.quiz || []), { id: Date.now().toString(), text: { en: '', ml: '' }, options: { en: ['', '', '', ''], ml: ['', '', '', ''] }, correctIndex: 0 }] })}
-                  className="w-full py-3 border-2 border-dashed border-stone-700 rounded-xl text-stone-500 hover:border-emerald-500 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Question
-                </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="flex justify-end gap-4">
-                <button
-                  onClick={() => { setIsAdding(false); setEditingId(null); }}
-                  className="px-6 py-3 bg-stone-700 rounded-xl font-black hover:bg-stone-600 transition-colors"
-                >
-                  Cancel
-                </button>
+              <div className="flex gap-4 pt-8 border-t border-black/5">
                 <button
                   onClick={handleSave}
-                  className="px-6 py-3 bg-emerald-500 text-black rounded-xl font-black hover:bg-emerald-400 transition-colors flex items-center gap-2"
+                  className="flex-1 bg-ink text-white font-bold py-4 rounded-xl hover:bg-ability-blue transition-all shadow-lg flex items-center justify-center gap-2"
                 >
                   <Save className="w-5 h-5" />
-                  Save Module
+                  {editingId ? 'Update Module' : 'Save Module'}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsAdding(false);
+                    setEditingId(null);
+                    setError(null);
+                  }}
+                  className="px-8 bg-paper text-zinc-500 font-bold py-4 rounded-xl hover:bg-zinc-100 transition-all border border-black/5"
+                >
+                  Cancel
                 </button>
               </div>
             </div>
           )}
 
-          <div className="grid gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {modules.map((m) => (
-              <div key={m.id} className="bg-stone-800/30 border border-stone-700 rounded-2xl p-6 flex items-center justify-between hover:border-emerald-500/30 transition-all">
-                <div>
-                  <h3 className="text-xl font-black">{m.title[language] || m.title.en}</h3>
-                  <p className="text-stone-500 text-xs uppercase tracking-widest font-black mt-1">{m.category}</p>
-                  <div className="flex gap-4 mt-2 text-[10px] font-black uppercase text-stone-600">
-                    <span>{m.lessons.length} Lessons</span>
-                    <span>{m.quiz.length} Questions</span>
+              <div key={m.id} className="bg-white border border-black/5 rounded-2xl p-6 flex flex-col justify-between hover:border-ability-blue/30 transition-all shadow-sm group">
+                <div className="space-y-4">
+                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-paper border border-black/5">
+                    <img 
+                      src={m.imageUrl || `https://picsum.photos/seed/${encodeURIComponent(m.title.en)}/800/600`} 
+                      alt="" 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-ability-blue bg-ability-blue/5 px-2 py-0.5 rounded-md">
+                        {m.category}
+                      </span>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md ${m.level === 'basic' ? 'bg-green-50 text-green-600' : 'bg-purple-50 text-purple-600'}`}>
+                        {m.level}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-serif font-bold text-ink line-clamp-1">{m.title[language] || m.title.en}</h3>
+                    <div className="flex gap-4 mt-3 text-[10px] font-bold uppercase text-zinc-400 tracking-widest">
+                      <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> {m.lessons.length} Lessons</span>
+                      <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> {m.quiz.length} Questions</span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                
+                <div className="flex items-center gap-2 mt-6 pt-4 border-t border-black/5">
                   <button
-                    onClick={() => { setEditingId(m.id); setFormData(m); }}
-                    className="p-3 bg-stone-700 rounded-xl hover:bg-emerald-500 hover:text-black transition-all"
-                    aria-label="Edit Module"
+                    onClick={() => { setEditingId(m.id); setFormData(m); setIsAdding(true); }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-paper text-ink rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-ability-blue hover:text-white transition-all border border-black/5"
                   >
-                    <Edit2 className="w-5 h-5" />
+                    <Edit2 className="w-4 h-4" /> Edit
                   </button>
                   <button
                     onClick={() => setConfirmDelete(m.id)}
-                    className="p-3 bg-stone-700 rounded-xl hover:bg-red-500 transition-all"
+                    className="p-2.5 bg-paper text-zinc-400 rounded-xl hover:bg-red-500 hover:text-white transition-all border border-black/5"
                     aria-label="Delete Module"
                   >
-                    <Trash2 className="w-5 h-5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             ))}
           </div>
         </>
-      ) : (
-        <div className="space-y-6">
-          <h2 className="text-3xl font-black tracking-tighter">
-            {language === 'ml' ? 'കുട്ടികളുടെ ഫലങ്ങൾ' : 'Student Results'}
-          </h2>
+      ) : activeTab === 'results' ? (
+        <div className="space-y-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-3xl font-serif font-bold text-ink">
+              {language === 'ml' ? 'കുട്ടികളുടെ ഫലങ്ങൾ' : 'Student Results'}
+            </h2>
+            <div className="px-4 py-2 bg-ability-blue/5 border border-ability-blue/10 rounded-xl text-ability-blue text-xs font-bold uppercase tracking-widest">
+              Total Results: {results.length}
+            </div>
+          </div>
+
           <div className="grid gap-4">
             {results.length === 0 ? (
-              <div className="p-12 text-center bg-stone-800/20 rounded-3xl border-2 border-dashed border-stone-800">
-                <p className="text-stone-500 font-black uppercase tracking-widest">No results yet</p>
+              <div className="p-16 text-center bg-paper rounded-[2rem] border-2 border-dashed border-black/5">
+                <Info className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
+                <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs">No results recorded yet</p>
               </div>
             ) : (
               results.map((res) => (
-                <div key={res.id} className="bg-stone-800/30 border border-stone-700 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <h3 className="text-xl font-black text-emerald-500">{res.studentName}</h3>
-                    <p className="text-stone-400 text-sm font-medium">{res.studentEmail}</p>
-                    <div className="flex items-center gap-2 text-stone-500 text-xs font-black uppercase tracking-widest mt-2">
-                      <BookOpen className="w-3 h-3" />
-                      {res.moduleTitle}
+                <div key={res.id} className="bg-white border border-black/5 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-all">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-ability-blue/10 rounded-xl flex items-center justify-center text-ability-blue">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-ink">{res.studentName}</h3>
+                      <p className="text-zinc-400 text-sm font-medium">{res.studentEmail}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <div className="text-3xl font-black text-white">{res.score}/{res.total}</div>
-                      <div className="text-[10px] font-black uppercase text-stone-600 tracking-widest">Score</div>
+
+                  <div className="flex-1 md:px-12">
+                    <div className="flex items-center gap-2 text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">
+                      <BookOpen className="w-3 h-3" /> {res.moduleTitle}
                     </div>
-                    <div className="h-12 w-px bg-stone-800 hidden md:block" />
-                    <div className="flex items-center gap-2 text-stone-500 text-[10px] font-black uppercase tracking-widest">
-                      <Calendar className="w-3 h-3" />
+                    <div className="w-full h-1.5 bg-paper rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-1000 ${res.score / res.total >= 0.8 ? 'bg-green-500' : res.score / res.total >= 0.5 ? 'bg-ability-blue' : 'bg-amber-500'}`}
+                        style={{ width: `${(res.score / res.total) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-8">
+                    <div className="text-right">
+                      <div className="text-3xl font-bold text-ink">{res.score}<span className="text-zinc-300 text-xl">/{res.total}</span></div>
+                      <div className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Final Score</div>
+                    </div>
+                    <div className="h-10 w-px bg-black/5 hidden md:block" />
+                    <div className="flex items-center gap-2 text-zinc-400 text-[10px] font-bold uppercase tracking-widest">
+                      <Calendar className="w-4 h-4" />
                       {new Date(res.timestamp).toLocaleDateString()}
                     </div>
                   </div>
                 </div>
               ))
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-3xl font-serif font-bold text-ink">
+              {language === 'ml' ? 'രജിസ്റ്റർ ചെയ്ത കുട്ടികൾ' : 'Registered Students'}
+            </h2>
+            <div className="px-4 py-2 bg-ability-blue/5 border border-ability-blue/10 rounded-xl text-ability-blue text-xs font-bold uppercase tracking-widest">
+              Total Students: {users.length}
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            {users.length === 0 ? (
+              <div className="p-16 text-center bg-paper rounded-[2rem] border-2 border-dashed border-black/5">
+                <Users className="w-12 h-12 text-zinc-200 mx-auto mb-4" />
+                <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs">No students registered yet</p>
+              </div>
+            ) : (
+              users.map((user) => {
+                const userProgress = allProgress.filter(p => p.userId === user.uid);
+                const completedModules = userProgress.filter(p => p.quizCompleted).length;
+                const inProgressModules = userProgress.filter(p => !p.quizCompleted && p.completedLessons.length > 0).length;
+
+                return (
+                  <div key={user.uid} className="bg-white border border-black/5 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-8 hover:shadow-md transition-all">
+                    <div className="flex items-center gap-4 min-w-[240px]">
+                      <div className="w-14 h-14 bg-paper rounded-2xl flex items-center justify-center text-ability-blue border border-black/5 shadow-sm">
+                        <Users className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-ink tracking-tight">{user.fullName}</h3>
+                        <p className="text-zinc-400 text-sm font-medium">{user.email}</p>
+                        <div className="flex gap-2 mt-2">
+                          <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md ${user.role === 'admin' ? 'bg-amber-50 text-amber-600' : 'bg-ability-blue/5 text-ability-blue'}`}>
+                            {user.role}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-8">
+                      <div className="text-center md:text-left">
+                        <div className="text-2xl font-bold text-ink">{completedModules}</div>
+                        <div className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Completed</div>
+                      </div>
+
+                      <div className="text-center md:text-left">
+                        <div className="text-2xl font-bold text-ability-blue">{inProgressModules}</div>
+                        <div className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">In Progress</div>
+                      </div>
+                      
+                      <div className="col-span-2 space-y-2">
+                        <div className="flex items-center justify-between text-[10px] font-bold uppercase text-zinc-400 tracking-widest">
+                          <span>Overall Progress</span>
+                          <span className="text-ink">{modules.length > 0 ? Math.round((completedModules / modules.length) * 100) : 0}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-paper rounded-full overflow-hidden border border-black/5">
+                          <div 
+                            className="h-full bg-ability-blue transition-all duration-1000 shadow-[0_0_10px_rgba(0,86,179,0.2)]" 
+                            style={{ width: `${modules.length > 0 ? (completedModules / modules.length) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">
+                        ID: {user.uid?.slice(-8)}
+                      </div>
+                      <button className="text-[10px] font-bold text-ability-blue uppercase tracking-widest hover:underline">
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
