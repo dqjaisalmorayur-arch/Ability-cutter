@@ -46,8 +46,8 @@ export default function Login({ onLoginSuccess, language }: LoginProps) {
       const profile = await authService.signInWithGoogle();
       onLoginSuccess(profile);
     } catch (err: any) {
-      console.error(err);
-      setError("Google Login failed. Please try again.");
+      console.error('Google Login Error:', err);
+      setError(`Google Login failed: ${err.message || "Please try again."}`);
     } finally {
       setLoading(false);
     }

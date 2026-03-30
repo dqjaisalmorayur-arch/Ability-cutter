@@ -21,10 +21,9 @@ import { UserProfile, Language } from '../types';
 export const authService = {
   // Google Sign In
   signInWithGoogle: async (): Promise<UserProfile> => {
-    // Check if we are in a WebView or mobile environment where popups might fail
-    const isWebView = /wv|Version\/[\d\.]+/i.test(navigator.userAgent);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
-    if (isWebView) {
+    if (isMobile) {
       await signInWithRedirect(auth, googleProvider);
       // This will redirect the page, so we won't return anything here
       return new Promise(() => {}); 

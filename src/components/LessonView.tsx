@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Module, Language } from '../types';
-import { ChevronLeft, Play, Volume2, ArrowRight, Pause, Music, CheckCircle } from 'lucide-react';
-import { speakText, stopSpeaking } from '../services/geminiService';
+import { ChevronLeft, Play, Volume2, ArrowRight, Pause, Music, CheckCircle, BrainCircuit, Loader2 } from 'lucide-react';
+import { speakText, stopSpeaking, generateInteractiveExercise } from '../services/geminiService';
 import { moduleService } from '../services/moduleService';
 
 interface LessonViewProps {
@@ -17,6 +17,11 @@ export default function LessonView({ module, userId, language, onStartQuiz, onBa
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const [exercise, setExercise] = useState<any>(null);
+  const [isGeneratingExercise, setIsGeneratingExercise] = useState(false);
+  const [exerciseAnswers, setExerciseAnswers] = useState<Record<number, string>>({});
+  const [exerciseFeedback, setExerciseFeedback] = useState<string>('');
+
   const lesson = module.lessons[currentLessonIndex];
 
   useEffect(() => {
@@ -28,6 +33,50 @@ export default function LessonView({ module, userId, language, onStartQuiz, onBa
 
   const lessonTitle = lesson.title[language] || lesson.title['en'] || '';
   const lessonContent = lesson.content[language] || lesson.content['en'] || '';
+
+  const handleGenerateExercise = async () => {
+    setIsGeneratingExercise(true);
+    setExercise(null);
+    setExerciseAnswers({});
+    setExerciseFeedback('');
+    try {
+      const generated = await generateInteractiveExercise(lessonContent, language);
+      if (generated) {
+        setExercise(generated);
+      } else {
+        setExerciseFeedback(language === 'ml' ? 'പരിശീലനം സൃഷ്ടിക്കാൻ കഴിഞ്ഞില്ല.' : 'Failed to generate exercise.');
+      }
+    } catch (error) {
+      setExerciseFeedback(language === 'ml' ? 'ഒരു പിശക് സംഭവിച്ചു.' : 'An error occurred.');
+    } finally {
+      setIsGeneratingExercise(false);
+    }
+  };
+
+  const checkExerciseAnswers = () => {
+    if (!exercise) return;
+    
+    let correctCount = 0;
+    if (exercise.type === 'fill-in-the-blanks') {
+      exercise.items.forEach((item: any, index: number) => {
+        if (exerciseAnswers[index] === item.answer) {
+          correctCount++;
+        }
+      });
+    } else if (exercise.type === 'matching-pairs') {
+      exercise.items.forEach((item: any, index: number) => {
+        if (exerciseAnswers[index] === item.right) {
+          correctCount++;
+        }
+      });
+    }
+
+    if (correctCount === exercise.items.length) {
+      setExerciseFeedback(language === 'ml' ? 'അഭിനന്ദനങ്ങൾ! എല്ലാ ഉത്തരങ്ങളും ശരിയാണ്.' : 'Congratulations! All answers are correct.');
+    } else {
+      setExerciseFeedback(language === 'ml' ? `${correctCount}/${exercise.items.length} ശരിയാണ്. വീണ്ടും ശ്രമിക്കുക.` : `${correctCount}/${exercise.items.length} correct. Try again.`);
+    }
+  };
 
   const toggleAudio = () => {
     if (!lesson.audioUrl) return;
@@ -54,6 +103,9 @@ export default function LessonView({ module, userId, language, onStartQuiz, onBa
       audioRef.current.currentTime = 0;
     }
     setIsPlaying(false);
+    setExercise(null);
+    setExerciseAnswers({});
+    setExerciseFeedback('');
 
     return () => {
       if (audioRef.current) {
@@ -152,6 +204,105 @@ export default function LessonView({ module, userId, language, onStartQuiz, onBa
                 <span className="mt-6 text-zinc-400 font-bold uppercase tracking-[0.3em] text-[10px] relative z-10">Watch Educational Video</span>
               </div>
             )}
+
+            {/* Interactive Exercise Section */}
+            <div className="pt-12 border-t border-black/5">
+              {!exercise && !isGeneratingExercise && (
+                <button
+                  onClick={handleGenerateExercise}
+                  className="w-full py-6 rounded-2xl border-2 border-dashed border-ability-blue/30 text-ability-blue font-bold flex items-center justify-center gap-3 hover:bg-ability-blue/5 transition-colors focus:outline-none focus:ring-4 focus:ring-ability-blue/20"
+                  aria-label={language === 'ml' ? 'ഒരു പരിശീലനം സൃഷ്ടിക്കുക' : 'Generate an interactive exercise'}
+                >
+                  <BrainCircuit className="w-6 h-6" />
+                  {language === 'ml' ? 'ഒരു പരിശീലനം സൃഷ്ടിക്കുക' : 'Generate Interactive Exercise'}
+                </button>
+              )}
+
+              {isGeneratingExercise && (
+                <div className="w-full py-12 flex flex-col items-center justify-center gap-4 text-zinc-400">
+                  <Loader2 className="w-8 h-8 animate-spin text-ability-blue" />
+                  <p className="font-medium">{language === 'ml' ? 'പരിശീലനം തയ്യാറാക്കുന്നു...' : 'Generating exercise...'}</p>
+                </div>
+              )}
+
+              {exercise && (
+                <div className="space-y-8 bg-paper p-8 rounded-[2rem] border border-black/5">
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-bold text-ink">{exercise.question}</h3>
+                    <p className="text-sm text-zinc-500 font-medium uppercase tracking-widest">
+                      {exercise.type === 'fill-in-the-blanks' 
+                        ? (language === 'ml' ? 'വിട്ട ഭാഗം പൂരിപ്പിക്കുക' : 'Fill in the blanks') 
+                        : (language === 'ml' ? 'ചേരുംപടി ചേർക്കുക' : 'Matching Pairs')}
+                    </p>
+                  </div>
+
+                  {exercise.type === 'fill-in-the-blanks' && (
+                    <div className="space-y-6">
+                      {exercise.items.map((item: any, index: number) => {
+                        const parts = item.text.split('___');
+                        return (
+                          <div key={index} className="space-y-3 p-6 bg-white rounded-2xl border border-black/5 shadow-sm">
+                            <p className="text-lg font-medium text-zinc-700 leading-relaxed">
+                              {parts[0]}
+                              <select
+                                value={exerciseAnswers[index] || ''}
+                                onChange={(e) => setExerciseAnswers({ ...exerciseAnswers, [index]: e.target.value })}
+                                className="mx-2 px-4 py-2 bg-paper border border-black/10 rounded-xl font-bold text-ability-blue focus:outline-none focus:ring-2 focus:ring-ability-blue"
+                                aria-label={language === 'ml' ? 'ഉത്തരം തിരഞ്ഞെടുക്കുക' : 'Select answer'}
+                              >
+                                <option value="" disabled>---</option>
+                                {item.options.map((opt: string, i: number) => (
+                                  <option key={i} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                              {parts[1]}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {exercise.type === 'matching-pairs' && (
+                    <div className="space-y-6">
+                      {exercise.items.map((item: any, index: number) => (
+                        <div key={index} className="flex flex-col sm:flex-row items-center gap-4 p-6 bg-white rounded-2xl border border-black/5 shadow-sm">
+                          <div className="flex-1 text-lg font-medium text-zinc-700 text-center sm:text-left">
+                            {item.left}
+                          </div>
+                          <select
+                            value={exerciseAnswers[index] || ''}
+                            onChange={(e) => setExerciseAnswers({ ...exerciseAnswers, [index]: e.target.value })}
+                            className="w-full sm:w-1/2 px-4 py-3 bg-paper border border-black/10 rounded-xl font-bold text-ability-blue focus:outline-none focus:ring-2 focus:ring-ability-blue"
+                            aria-label={language === 'ml' ? 'ശരിയായ ജോഡി തിരഞ്ഞെടുക്കുക' : 'Select matching pair'}
+                          >
+                            <option value="" disabled>---</option>
+                            {/* Shuffle options for matching pairs */}
+                            {[...exercise.items].sort(() => Math.random() - 0.5).map((opt: any, i: number) => (
+                              <option key={i} value={opt.right}>{opt.right}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-black/5">
+                    <button
+                      onClick={checkExerciseAnswers}
+                      className="w-full sm:w-auto px-8 py-4 bg-ability-blue text-white font-bold rounded-xl hover:bg-blue-600 transition-colors focus:outline-none focus:ring-4 focus:ring-ability-blue/30"
+                    >
+                      {language === 'ml' ? 'ഉത്തരങ്ങൾ പരിശോധിക്കുക' : 'Check Answers'}
+                    </button>
+                    {exerciseFeedback && (
+                      <p className={`font-bold ${exerciseFeedback.includes('Congratulations') || exerciseFeedback.includes('അഭിനന്ദനങ്ങൾ') ? 'text-emerald-600' : 'text-amber-600'}`} role="alert">
+                        {exerciseFeedback}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <footer className="pt-16 border-t border-black/5 flex flex-col sm:flex-row gap-8">
               {currentLessonIndex < module.lessons.length - 1 ? (

@@ -434,6 +434,64 @@ export async function generateFullModuleFromText(sourceText?: string, fileData?:
   }
 }
 
+export async function generateInteractiveExercise(lessonContent: string, language: Language) {
+  if (!lessonContent) return null;
+
+  try {
+    const response = await getAI().models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Generate an interactive exercise based on the following lesson content. 
+      The exercise should be a "fill-in-the-blanks" or "matching-pairs" type, suitable for visually impaired children using screen readers.
+      Provide the exercise in ${LANG_NAME[language]}.
+      
+      Lesson Content:
+      ${lessonContent}
+      
+      Return a JSON object with the following structure:
+      {
+        "type": "fill-in-the-blanks" | "matching-pairs",
+        "question": "The instruction for the exercise",
+        "items": [
+          // For fill-in-the-blanks: { "text": "The sky is ___", "answer": "blue", "options": ["red", "blue", "green"] }
+          // For matching-pairs: { "left": "Apple", "right": "Fruit" }
+        ]
+      }`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            type: { type: Type.STRING },
+            question: { type: Type.STRING },
+            items: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  text: { type: Type.STRING },
+                  answer: { type: Type.STRING },
+                  options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  left: { type: Type.STRING },
+                  right: { type: Type.STRING }
+                }
+              }
+            }
+          },
+          required: ["type", "question", "items"]
+        }
+      }
+    });
+
+    if (response.text) {
+      return JSON.parse(response.text);
+    }
+    return null;
+  } catch (error) {
+    console.error("Exercise Generation Error:", error);
+    return null;
+  }
+}
+
 export async function validateAnswer(userAnswer: string, correctAnswer: string): Promise<boolean> {
   if (!userAnswer || !correctAnswer) return false;
   
