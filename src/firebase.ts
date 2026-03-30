@@ -6,12 +6,12 @@ import firebaseConfig from '../firebase-applet-config.json';
 
 const config = {
   ...firebaseConfig,
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfig.authDomain,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfig.projectId,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfig.messagingSenderId,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfig.appId,
+  apiKey: "AIzaSyAQBH001UINFz-CikTEgpnnJglvHw2hryc",
+  authDomain: "glass-sequence-474612-f8.firebaseapp.com",
+  projectId: "glass-sequence-474612-f8",
+  storageBucket: "glass-sequence-474612-f8.firebasestorage.app",
+  messagingSenderId: "674312894394",
+  appId: "1:674312894394:web:df76046ffd15cb02b58f83"
 };
 
 const app = initializeApp(config);
