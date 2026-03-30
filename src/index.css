@@ -1,14 +1,13 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Cormorant Garamond", serif;
   
-  --color-ability-blue: #0056b3;
-  --color-paper: #fdfcfb;
-  --color-ink: #1a1a1a;
-  --color-ink-light: #333333;
+  --color-ability-blue: #4f46e5; /* Modern Indigo */
+  --color-paper: #f8fafc; /* Slate 50 */
+  --color-ink: #0f172a; /* Slate 900 */
+  --color-ink-light: #334155; /* Slate 700 */
 }
 
 @layer base {
@@ -17,7 +16,7 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-serif font-bold tracking-tight;
+    @apply font-sans font-bold tracking-tight text-ink;
   }
 
   /* Prominent focus states for accessibility */
@@ -28,11 +27,11 @@
 
 @layer utilities {
   .text-glow {
-    text-shadow: 0 0 20px rgba(0, 86, 179, 0.1);
+    text-shadow: 0 0 20px rgba(79, 70, 229, 0.15);
   }
   
   .bg-glass {
-    @apply bg-white/80 backdrop-blur-xl border border-black/5;
+    @apply bg-white/80 backdrop-blur-xl border border-slate-200;
   }
   
   .no-scrollbar::-webkit-scrollbar {
@@ -51,7 +50,7 @@
     @apply bg-transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-black/10 rounded-full hover:bg-black/20 transition-colors;
+    @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
   }
 }
 

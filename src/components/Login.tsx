@@ -93,14 +93,14 @@ export default function Login({ onLoginSuccess, language }: LoginProps) {
             <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-black">
               <Logo />
             </div>
-            <span className="text-2xl font-black tracking-tighter text-white uppercase">Insight</span>
+            <span className="text-2xl font-black tracking-tighter text-white uppercase">Ability Learning</span>
           </div>
 
           <div className="space-y-6">
             <motion.h1 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-6xl lg:text-8xl font-black text-white leading-[0.9] tracking-tighter uppercase"
+              className="text-5xl lg:text-7xl font-black text-white leading-tight tracking-tighter uppercase"
             >
               Empower <br />
               <span className="text-emerald-500">Your</span> <br />
@@ -113,8 +113,8 @@ export default function Login({ onLoginSuccess, language }: LoginProps) {
               className="text-xl text-stone-500 font-medium max-w-md leading-relaxed"
             >
               {language === 'ml' 
-                ? 'കാഴ്ചപരിമിതിയുള്ളവർക്കായി പ്രത്യേകം രൂപകൽപ്പന ചെയ്ത ഒരു നൂതന പഠന പ്ലാറ്റ്‌ഫോം.' 
-                : 'A specialized learning platform designed with precision for the visually impaired community.'}
+                ? 'വിദ്യാഭ്യാസത്തിനും തൊഴിലിനുമായി കാഴ്ചപരിമിതിയുള്ളവരെ കമ്പ്യൂട്ടർ പരിശീലനത്തിലൂടെ ശാക്തീകരിക്കുന്നു.' 
+                : 'Empowering visually impaired individuals with essential computer skills for education and employment.'}
             </motion.p>
           </div>
         </div>

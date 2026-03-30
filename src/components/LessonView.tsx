@@ -143,7 +143,7 @@ export default function LessonView({ module, userId, language, onStartQuiz, onBa
               <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-ability-blue/5 border border-ability-blue/10 text-ability-blue text-[10px] font-bold uppercase tracking-[0.3em]">
                 {module.title[language] || module.title['en']}
               </div>
-              <h2 className="text-5xl md:text-7xl font-serif font-bold text-ink leading-[1.1]" id="lesson-title">
+              <h2 className="text-4xl md:text-6xl font-sans font-bold text-ink leading-[1.1]" id="lesson-title">
                 {lessonTitle}
               </h2>
             </header>
@@ -290,7 +290,7 @@ export default function LessonView({ module, userId, language, onStartQuiz, onBa
                   <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-black/5">
                     <button
                       onClick={checkExerciseAnswers}
-                      className="w-full sm:w-auto px-8 py-4 bg-ability-blue text-white font-bold rounded-xl hover:bg-blue-600 transition-colors focus:outline-none focus:ring-4 focus:ring-ability-blue/30"
+                      className="w-full sm:w-auto px-8 py-4 bg-ability-blue text-white font-bold rounded-xl hover:opacity-90 transition-colors focus:outline-none focus:ring-4 focus:ring-ability-blue/30"
                     >
                       {language === 'ml' ? 'ഉത്തരങ്ങൾ പരിശോധിക്കുക' : 'Check Answers'}
                     </button>

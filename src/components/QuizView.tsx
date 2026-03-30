@@ -129,7 +129,7 @@ export default function QuizView({ module, language, profile, onComplete, onBack
           <CheckCircle2 className="w-20 h-20" />
         </div>
         <div className="space-y-4">
-          <h2 className="text-6xl font-serif font-bold text-ink tracking-tight">
+          <h2 className="text-5xl font-sans font-bold text-ink tracking-tight">
             {language === 'ml' ? 'അഭിനന്ദനങ്ങൾ!' : 'MISSION COMPLETE'}
           </h2>
           <p className="text-2xl text-zinc-500 font-medium">
@@ -174,7 +174,7 @@ export default function QuizView({ module, language, profile, onComplete, onBack
                   Score: {score}
                 </div>
               </div>
-              <h2 className="text-4xl md:text-6xl font-serif font-bold text-ink leading-[1.2]" id="quiz-question">
+              <h2 className="text-3xl md:text-5xl font-sans font-bold text-ink leading-[1.2]" id="quiz-question">
                 {questionText}
               </h2>
             </div>

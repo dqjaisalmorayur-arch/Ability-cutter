@@ -447,7 +447,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       {confirmDelete && (
         <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-black/5 p-8 rounded-[2rem] max-w-md w-full space-y-6 shadow-2xl">
-            <h3 className="text-2xl font-serif font-bold text-ink">Delete Module?</h3>
+            <h3 className="text-2xl font-sans font-bold text-ink">Delete Module?</h3>
             <p className="text-zinc-500">This action cannot be undone. All lessons and quizzes in this module will be lost.</p>
             <div className="flex gap-4">
               <button onClick={() => setConfirmDelete(null)} className="flex-1 py-3 bg-paper rounded-xl font-bold text-zinc-600 hover:bg-zinc-100 transition-colors" aria-label="Cancel deletion">Cancel</button>
@@ -460,7 +460,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       {activeTab === 'modules' ? (
         <>
           <div className="flex items-center justify-between">
-            <h2 className="text-3xl font-serif font-bold text-ink">
+            <h2 className="text-3xl font-sans font-bold text-ink">
               {language === 'ml' ? 'മൊഡ്യൂളുകൾ നിയന്ത്രിക്കുക' : 'Manage Modules'}
             </h2>
             <div className="flex items-center gap-4">
@@ -696,7 +696,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
               {/* Lessons Section */}
               <div className="space-y-6">
                 <div className="flex items-center justify-between border-b border-black/5 pb-2">
-                  <h3 className="text-xl font-serif font-bold text-ink">Lessons</h3>
+                  <h3 className="text-xl font-sans font-bold text-ink">Lessons</h3>
                   <button
                     onClick={() => setFormData({ ...formData, lessons: [...(formData.lessons || []), { id: Date.now().toString(), title: { en: '', ml: '' }, content: { en: '', ml: '' } }] })}
                     className="flex items-center gap-2 px-4 py-2 bg-paper text-ability-blue rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-ability-blue hover:text-white transition-all border border-black/5"
@@ -844,7 +844,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
               {/* Quiz Section */}
               <div className="space-y-6">
                 <div className="flex items-center justify-between border-b border-black/5 pb-2">
-                  <h3 className="text-xl font-serif font-bold text-ink">Quiz Questions</h3>
+                  <h3 className="text-xl font-sans font-bold text-ink">Quiz Questions</h3>
                   <div className="flex gap-2">
                     <button
                       onClick={handleAutoGenerateQuiz}
@@ -1023,7 +1023,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
                         {m.level}
                       </span>
                     </div>
-                    <h3 className="text-xl font-serif font-bold text-ink line-clamp-1">{m.title[language] || m.title.en}</h3>
+                    <h3 className="text-xl font-sans font-bold text-ink line-clamp-1">{m.title[language] || m.title.en}</h3>
                     <div className="flex gap-4 mt-3 text-[10px] font-bold uppercase text-zinc-400 tracking-widest">
                       <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> {m.lessons.length} Lessons</span>
                       <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> {m.quiz.length} Questions</span>
@@ -1054,7 +1054,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       ) : activeTab === 'results' ? (
         <div className="space-y-8">
           <div className="flex items-center justify-between">
-            <h2 className="text-3xl font-serif font-bold text-ink">
+            <h2 className="text-3xl font-sans font-bold text-ink">
               {language === 'ml' ? 'കുട്ടികളുടെ ഫലങ്ങൾ' : 'Student Results'}
             </h2>
             <div className="px-4 py-2 bg-ability-blue/5 border border-ability-blue/10 rounded-xl text-ability-blue text-xs font-bold uppercase tracking-widest">
@@ -1112,7 +1112,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       ) : (
         <div className="space-y-8">
           <div className="flex items-center justify-between">
-            <h2 className="text-3xl font-serif font-bold text-ink">
+            <h2 className="text-3xl font-sans font-bold text-ink">
               {language === 'ml' ? 'രജിസ്റ്റർ ചെയ്ത കുട്ടികൾ' : 'Registered Students'}
             </h2>
             <div className="px-4 py-2 bg-ability-blue/5 border border-ability-blue/10 rounded-xl text-ability-blue text-xs font-bold uppercase tracking-widest">

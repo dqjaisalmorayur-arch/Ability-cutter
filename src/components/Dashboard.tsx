@@ -111,7 +111,7 @@ export default function Dashboard({
                 {language === 'ml' ? 'മികച്ച പഠനാനുഭവം' : 'Premium Learning Experience'}
               </span>
             </div>
-            <h1 id="hero-title" className="text-7xl md:text-9xl font-serif font-bold tracking-tight text-ink leading-[0.9]">
+            <h1 id="hero-title" className="text-5xl md:text-7xl font-sans font-bold tracking-tight text-ink leading-tight">
               {language === 'ml' ? 'പഠനം തുടങ്ങാം' : "Let's Start Learning"}
             </h1>
             <p className="text-zinc-500 text-xl md:text-2xl max-w-2xl font-medium leading-relaxed">
@@ -131,7 +131,7 @@ export default function Dashboard({
             <div className="absolute bottom-10 left-10 right-10">
               <div className="p-6 bg-white/90 backdrop-blur-md rounded-2xl border border-black/5 shadow-xl">
                 <div className="text-[10px] font-bold text-ability-blue uppercase tracking-widest mb-2">Featured Course</div>
-                <div className="text-xl font-serif font-bold text-ink">Introduction to Digital Literacy</div>
+                <div className="text-xl font-sans font-bold text-ink">Introduction to Digital Literacy</div>
               </div>
             </div>
           </div>
@@ -338,7 +338,7 @@ export default function Dashboard({
                 <div className="p-10 space-y-6 flex-1 flex flex-col bg-white">
                   <div className="space-y-4 flex-1">
                     <div className="flex items-start justify-between gap-4">
-                      <h3 className="text-3xl font-serif font-bold text-ink leading-tight group-hover:text-ability-blue transition-colors">
+                      <h3 className="text-3xl font-sans font-bold text-ink leading-tight group-hover:text-ability-blue transition-colors">
                         {m.title[language] || m.title.en}
                       </h3>
                       {getModuleProgress(m.id) > 0 && (
@@ -405,20 +405,20 @@ export default function Dashboard({
               />
               <div className="space-y-2">
                 <span className="text-ability-blue font-bold text-xs uppercase tracking-[0.4em]">Organization</span>
-                <h2 id="about-title" className="text-4xl md:text-5xl font-serif font-bold tracking-tight leading-tight">
+                <h2 id="about-title" className="text-4xl md:text-5xl font-sans font-bold tracking-tight leading-tight">
                   {language === 'ml' ? 'എബിലിറ്റി ഫൗണ്ടേഷൻ പുളിക്കൽ' : 'Ability Foundation Pulikkal'}
                 </h2>
               </div>
             </div>
             <p className="text-zinc-500 text-xl leading-relaxed font-medium">
               {language === 'ml' 
-                ? 'മലപ്പുറം ജില്ലയിലെ പുളിക്കൽ ആസ്ഥാനമായി പ്രവർത്തിക്കുന്ന എബിലിറ്റി ഫൗണ്ടേഷൻ ഫോർ ദ ഡിസേബിൾഡ് (Ability Foundation for the Disabled), ഭിന്നശേഷിക്കാരുടെ ഉന്നമനത്തിനായി പ്രവർത്തിക്കുന്ന ഒരു പ്രമുഖ സംഘടനയാണ്. പ്രത്യേകിച്ച് കാഴ്ചാപരിമിതിയുള്ളവർക്കായി വിവിധ തൊഴിലധിഷ്ഠിത പരിശീലനങ്ങളും വിദ്യാഭ്യാസ പദ്ധതികളും ഇവർ നടപ്പിലാക്കുന്നു. കമ്പ്യൂട്ടർ സാക്ഷരതയിലൂടെ അവരെ സ്വയംപര്യാപ്തരാക്കുക എന്നതാണ് ഈ പ്ലാറ്റ്‌ഫോമിന്റെ പ്രധാന ലക്ഷ്യം.' 
-                : 'Based in Pulikkal, Malappuram, Ability Foundation for the Disabled is a leading organization working for the empowerment of people with disabilities. They implement various vocational training and educational programs, especially for the visually impaired. The primary goal of this platform is to make them self-reliant through computer literacy.'}
+                ? 'കാഴ്ചപരിമിതിയുള്ളവർക്ക് കമ്പ്യൂട്ടർ പരിശീലനം നൽകി അവരെ സ്വയംപര്യാപ്തരാക്കാൻ ലക്ഷ്യമിടുന്ന പുളിക്കൽ എബിലിറ്റി ഫൗണ്ടേഷന്റെ പ്രത്യേക പഠന പ്ലാറ്റ്‌ഫോം.' 
+                : 'Empowering the visually impaired through accessible computer education. Based in Pulikkal, Ability Foundation provides specialized training to foster self-reliance and professional growth.'}
             </p>
             
             {/* Benefits Section */}
             <div className="space-y-6">
-              <h3 className="text-2xl font-serif font-bold text-ink">
+              <h3 className="text-2xl font-sans font-bold text-ink">
                 {language === 'ml' ? 'ഈ പ്ലാറ്റ്‌ഫോമിന്റെ ഗുണങ്ങൾ' : 'Benefits of this Platform'}
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -458,7 +458,7 @@ export default function Dashboard({
                 <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">Years of Service</div>
               </div>
               <div className="p-8 bg-paper rounded-3xl border border-black/5">
-                <div className="text-blue-600 font-bold text-4xl mb-2">1000+</div>
+                <div className="text-ability-blue font-bold text-4xl mb-2">1000+</div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">Students Empowered</div>
               </div>
             </div>
