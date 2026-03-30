@@ -21,14 +21,6 @@ import { UserProfile, Language } from '../types';
 export const authService = {
   // Google Sign In
   signInWithGoogle: async (): Promise<UserProfile> => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      await signInWithRedirect(auth, googleProvider);
-      // This will redirect the page, so we won't return anything here
-      return new Promise(() => {}); 
-    }
-
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
     return await authService.syncUserProfile(user);
