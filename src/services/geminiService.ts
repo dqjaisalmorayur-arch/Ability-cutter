@@ -304,7 +304,7 @@ export async function generateFullModuleFromText(sourceText?: string, fileData?:
 
     parts.push({ text: `
       INSTRUCTIONS:
-      1. Create a complete educational module based on the source content.
+      1. Create a complete educational module based on the source content. If the source content is short, expand it with your expertise to create a comprehensive learning experience.
       2. The target audience is visually impaired children. Ensure all content is highly descriptive, accessible, and avoids visual-only references.
       3. Provide a title in both English and Malayalam.
       4. Provide a highly descriptive short description (1-2 sentences) in both English and Malayalam that explains the concept clearly for a visually impaired student.
@@ -445,13 +445,14 @@ export async function generateFullModuleFromText(sourceText?: string, fileData?:
           return JSON.parse(fixedJson);
         } catch (finalError) {
           console.error("Final JSON Parse Error:", finalError);
+          throw new Error("The AI response was not in a valid format. Please try again.");
         }
       }
     }
-    return null;
+    throw new Error("The AI failed to generate a response. Please try again.");
   } catch (error) {
     console.error("Full Module Generation Error:", error);
-    return null;
+    throw error;
   }
 }
 

@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Module, Language, Lesson, Question, QuizResult, UserProgress } from '../types';
 import { moduleService } from '../services/moduleService';
 import { generateModuleContent, generateQuizQuestions, generateFullModuleFromText } from '../services/geminiService';
-import { Plus, Trash2, Save, X, ChevronDown, ChevronUp, Edit2, Users, BookOpen, Calendar, ChevronLeft, Sparkles, Loader2, FileText, Upload, Database, Info, Music, Play, Pause, CheckCircle } from 'lucide-react';
-// import * as mammoth from 'mammoth';
+import { Plus, Trash2, Save, X, ChevronDown, ChevronUp, Edit2, Users, BookOpen, Calendar, ChevronLeft, Sparkles, Loader2, FileText, Upload, Database, Info, Music, Play, Pause, CheckCircle, Search } from 'lucide-react';
+import * as mammoth from 'mammoth';
 import { MODULES } from '../constants';
 import { storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -24,6 +24,8 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
   const [editSection, setEditSection] = useState<'details' | 'lessons' | 'quiz'>('details');
   const [quickEditingId, setQuickEditingId] = useState<string | null>(null);
   const [quickEditData, setQuickEditData] = useState<{ en: string; ml: string }>({ en: '', ml: '' });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [formData, setFormData] = useState<Partial<Module>>({
     category: 'Desktop',
     level: 'basic',
@@ -32,11 +34,6 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
     lessons: [],
     quiz: []
   });
-
-  const categories = [
-    'Desktop', 'Taskbar', 'Start Menu', 'Notepad', 'Calculator', 
-    'MS Word Basic', 'MS Word Advanced', 'Excel', 'PowerPoint', 'Internet'
-  ];
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -240,7 +237,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as string);
           reader.onerror = reject;
-          reader.readAsText(file, 'UTF-8');
+          reader.readAsText(file); // Default to UTF-8, handles BOMs
         });
         
         if (text.trim().length < 10) {
@@ -253,7 +250,8 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
         result = await generateFullModuleFromText(text);
       } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || extension === 'docx') {
         const arrayBuffer = await file.arrayBuffer();
-        const text = "Mammoth disabled for testing"; // mammothResult.value;
+        const mammothResult = await mammoth.extractRawText({ arrayBuffer });
+        const text = mammothResult.value;
         if (text.trim().length < 10) {
           setError(language === 'ml' 
             ? 'വേർഡ് ഫയലിൽ ആവശ്യത്തിന് വിവരങ്ങൾ ഇല്ല.' 
@@ -286,14 +284,13 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
           quiz: result.quiz.map((q: any) => ({ ...q, id: Date.now().toString() + Math.random().toString(36).substr(2, 9) }))
         });
         setIsAdding(true);
-      } else {
-        setError(language === 'ml' 
-          ? 'മൊഡ്യൂൾ തയ്യാറാക്കാൻ സാധിച്ചില്ല. ഫയലിൽ ആവശ്യത്തിന് വിവരങ്ങൾ ഉണ്ടെന്ന് ഉറപ്പുവരുത്തുക. അല്ലെങ്കിൽ മറ്റൊരു ഫയൽ പരീക്ഷിക്കുക.' 
-          : 'Failed to generate module. Please ensure the file has enough content for the AI to analyze, or try a different file.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('File generation error:', err);
-      setError('Failed to generate module from file. Please try again.');
+      const msg = err?.message || (language === 'ml' ? 'അജ്ഞാതമായ പിശക്' : 'Unknown error');
+      setError(language === 'ml' 
+        ? `മൊഡ്യൂൾ തയ്യാറാക്കാൻ സാധിച്ചില്ല: ${msg}` 
+        : `Failed to generate module: ${msg}`);
     } finally {
       setIsGenerating(false);
       e.target.value = '';
@@ -437,58 +434,165 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        if (isAdding || editingId) {
+          e.preventDefault();
+          handleSave();
+        }
+      }
+      if (e.key === 'Escape') {
+        if (isAdding || editingId) {
+          setIsAdding(false);
+          setEditingId(null);
+        } else {
+          onBack();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAdding, editingId, formData]);
+
   const uniqueModules = useMemo(() => {
-    return modules.filter((m, index, self) =>
+    let filtered = modules.filter((m, index, self) =>
       index === self.findIndex((t) => (
         (t.title.en === m.title.en || t.title.ml === m.title.ml) && t.category === m.category
       ))
     );
+
+    if (categoryFilter !== 'All') {
+      filtered = filtered.filter(m => m.category === categoryFilter);
+    }
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(m => 
+        m.title.en.toLowerCase().includes(query) || 
+        m.title.ml.toLowerCase().includes(query) ||
+        m.category.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [modules, categoryFilter, searchQuery]);
+
+  const categories = useMemo(() => {
+    const cats = new Set(modules.map(m => m.category));
+    return ['All', ...Array.from(cats)].sort();
   }, [modules]);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header with Back Button */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-zinc-400 hover:text-ability-blue font-bold uppercase tracking-widest transition-all group"
-          aria-label={language === 'ml' ? 'ഡാഷ്ബോർഡിലേക്ക് തിരികെ പോവുക' : 'Back to Dashboard'}
-        >
-          <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          <span>{language === 'ml' ? 'തിരികെ പോവുക' : 'Back to Dashboard'}</span>
-        </button>
-      </div>
+    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Sidebar */}
+      <aside className="space-y-6 lg:sticky lg:top-8">
+        {/* Header with Back Button */}
+        <div className="bg-white border border-black/5 rounded-3xl p-6 shadow-sm space-y-6">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-zinc-400 hover:text-ability-blue font-bold uppercase tracking-widest transition-all group text-xs"
+            aria-label={language === 'ml' ? 'ഡാഷ്ബോർഡിലേക്ക് തിരികെ പോവുക' : 'Back to Dashboard'}
+          >
+            <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span>{language === 'ml' ? 'തിരികെ പോവുക' : 'Back'}</span>
+          </button>
 
-      {/* Tabs */}
-      <div className="flex bg-white p-1 rounded-2xl border border-black/5 w-fit shadow-sm">
-        <button
-          onClick={() => setActiveTab('modules')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'modules' ? 'bg-ability-blue text-white shadow-md' : 'text-zinc-400 hover:text-ink'}`}
-          aria-label={language === 'ml' ? 'മൊഡ്യൂളുകൾ ടാബ്' : 'Modules Tab'}
-          aria-pressed={activeTab === 'modules'}
-        >
-          <BookOpen className="w-4 h-4" />
-          {language === 'ml' ? 'മൊഡ്യൂളുകൾ' : 'Modules'}
-        </button>
-        <button
-          onClick={() => setActiveTab('results')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'results' ? 'bg-ability-blue text-white shadow-md' : 'text-zinc-400 hover:text-ink'}`}
-          aria-label={language === 'ml' ? 'ഫലങ്ങൾ ടാബ്' : 'Results Tab'}
-          aria-pressed={activeTab === 'results'}
-        >
-          <FileText className="w-4 h-4" />
-          {language === 'ml' ? 'ഫലങ്ങൾ' : 'Results'}
-        </button>
-        <button
-          onClick={() => setActiveTab('students')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'students' ? 'bg-ability-blue text-white shadow-md' : 'text-zinc-400 hover:text-ink'}`}
-          aria-label={language === 'ml' ? 'കുട്ടികൾ ടാബ്' : 'Students Tab'}
-          aria-pressed={activeTab === 'students'}
-        >
-          <Users className="w-4 h-4" />
-          {language === 'ml' ? 'കുട്ടികൾ' : 'Students'}
-        </button>
-      </div>
+          <div className="h-px bg-black/5" />
+
+          {/* Tabs */}
+          <nav className="space-y-2">
+            <button
+              onClick={() => setActiveTab('modules')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'modules' ? 'bg-ability-blue text-white shadow-md' : 'text-zinc-400 hover:bg-ability-blue/5 hover:text-ink'}`}
+              aria-label={language === 'ml' ? 'മൊഡ്യൂളുകൾ ടാബ്' : 'Modules Tab'}
+            >
+              <BookOpen className="w-4 h-4" />
+              {language === 'ml' ? 'മൊഡ്യൂളുകൾ' : 'Modules'}
+            </button>
+            <button
+              onClick={() => setActiveTab('results')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'results' ? 'bg-ability-blue text-white shadow-md' : 'text-zinc-400 hover:bg-ability-blue/5 hover:text-ink'}`}
+              aria-label={language === 'ml' ? 'ഫലങ്ങൾ ടാബ്' : 'Results Tab'}
+            >
+              <FileText className="w-4 h-4" />
+              {language === 'ml' ? 'ഫലങ്ങൾ' : 'Results'}
+            </button>
+            <button
+              onClick={() => setActiveTab('students')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeTab === 'students' ? 'bg-ability-blue text-white shadow-md' : 'text-zinc-400 hover:bg-ability-blue/5 hover:text-ink'}`}
+              aria-label={language === 'ml' ? 'കുട്ടികൾ ടാബ്' : 'Students Tab'}
+            >
+              <Users className="w-4 h-4" />
+              {language === 'ml' ? 'കുട്ടികൾ' : 'Students'}
+            </button>
+          </nav>
+        </div>
+
+        {/* Filters Section */}
+        {activeTab === 'modules' && !isAdding && !editingId && (
+          <div className="bg-white border border-black/5 rounded-3xl p-6 shadow-sm space-y-6">
+            <h3 className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Filters</h3>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest ml-1">Search</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={language === 'ml' ? 'തിരയുക...' : 'Search...'}
+                    className="w-full pl-10 pr-4 py-2.5 bg-paper border border-black/5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ability-blue/20"
+                  />
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest ml-1">Category</label>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border ${categoryFilter === cat ? 'bg-ability-blue text-white border-ability-blue shadow-sm' : 'bg-paper text-zinc-400 border-black/5 hover:border-ability-blue/30'}`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* System Status Card */}
+        <div className="bg-ink text-white rounded-3xl p-6 shadow-xl space-y-4">
+          <h3 className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">System Status</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <div className="text-xl font-bold">{modules.length}</div>
+              <div className="text-[8px] font-bold uppercase text-zinc-500 tracking-widest">Modules</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xl font-bold">{users.length}</div>
+              <div className="text-[8px] font-bold uppercase text-zinc-500 tracking-widest">Students</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xl font-bold">{results.length}</div>
+              <div className="text-[8px] font-bold uppercase text-zinc-500 tracking-widest">Results</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xl font-bold text-green-400">Online</div>
+              <div className="text-[8px] font-bold uppercase text-zinc-500 tracking-widest">Status</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="space-y-8">
 
       {error && (
         <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl flex items-center justify-between shadow-sm mb-6" role="alert">
@@ -1309,5 +1413,6 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
         </div>
       )}
     </div>
-  );
+  </div>
+);
 }
