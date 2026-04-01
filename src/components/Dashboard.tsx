@@ -449,6 +449,15 @@ export default function Dashboard({
                               <span className={m.level === 'basic' ? 'text-emerald-600' : 'text-ability-blue'}>{m.level}</span>
                               <span>•</span>
                               <span>{m.lessons.length} Lessons</span>
+                              {m.audioUrl && (
+                                <>
+                                  <span>•</span>
+                                  <span className="flex items-center gap-1 text-ability-blue">
+                                    <Headphones className="w-3 h-3" />
+                                    Audio Available
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>

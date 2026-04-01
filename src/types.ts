@@ -37,6 +37,7 @@ export interface Module {
   lessons: Lesson[];
   quiz: Question[];
   order: number;
+  audioUrl?: string;
 }
 
 export interface UserProfile {

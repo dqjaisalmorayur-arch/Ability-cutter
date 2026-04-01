@@ -32,7 +32,8 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
     title: { en: '', ml: '' },
     description: { en: '', ml: '' },
     lessons: [],
-    quiz: []
+    quiz: [],
+    audioUrl: ''
   });
 
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +55,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       ];
 
   const [uploadingAudio, setUploadingAudio] = useState<number | null>(null);
+  const [isUploadingModuleAudio, setIsUploadingModuleAudio] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -69,6 +71,33 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       clearInterval(interval);
     };
   }, [isGenerating, loadingMessages.length]);
+
+  const handleModuleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('audio/')) {
+      setError(language === 'ml' ? 'ദയവായി ഒരു ഓഡിയോ ഫയൽ അപ്‌ലോഡ് ചെയ്യുക (mp3, wav, etc.)' : 'Please upload an audio file (mp3, wav, etc.)');
+      return;
+    }
+
+    setIsUploadingModuleAudio(true);
+    setError(null);
+
+    try {
+      const storageRef = ref(storage, `modules/audio/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      setFormData({ ...formData, audioUrl: downloadURL });
+    } catch (err) {
+      console.error('Module audio upload error:', err);
+      setError(language === 'ml' ? 'ഓഡിയോ ഫയൽ അപ്‌ലോഡ് ചെയ്യാൻ സാധിച്ചില്ല.' : 'Failed to upload audio file.');
+    } finally {
+      setIsUploadingModuleAudio(false);
+      e.target.value = '';
+    }
+  };
 
   const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>, lessonIndex: number) => {
     const file = e.target.files?.[0];
@@ -378,7 +407,8 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
         title: { en: '', ml: '' }, 
         description: { en: '', ml: '' }, 
         lessons: [], 
-        quiz: []
+        quiz: [],
+        audioUrl: ''
       });
       setError(null);
       setSuccess(editingId ? 'Module updated successfully!' : 'Module added successfully!');
@@ -832,6 +862,39 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
                           ? 'ഈ മൊഡ്യൂൾ വിദ്യാർത്ഥികൾക്ക് ലളിതമായി മനസ്സിലാക്കാവുന്ന രീതിയിൽ തയ്യാറാക്കുക. ടൈറ്റിലും ഡിസ്ക്രിപ്ഷനും കൃത്യമായി നൽകുന്നത് പഠനം എളുപ്പമാക്കും.' 
                           : 'Create this module in a way that is easy for students to understand. Providing accurate titles and descriptions will make learning easier.'}
                       </p>
+                    </div>
+
+                    {/* Audio Class Option */}
+                    <div className="p-6 bg-ability-blue/5 border border-ability-blue/10 rounded-3xl space-y-4">
+                      <div className="flex items-center gap-3 text-ability-blue">
+                        <Music className="w-5 h-5" />
+                        <h3 className="font-bold uppercase tracking-widest text-sm">
+                          {language === 'ml' ? 'ഓഡിയോ ക്ലാസ് (Audio Class)' : 'Audio Class Option'}
+                        </h3>
+                      </div>
+                      <p className="text-xs text-zinc-500">
+                        {language === 'ml' 
+                          ? 'ഈ മൊഡ്യൂളിനായി ഒരു പ്രധാന ഓഡിയോ ഫയൽ അപ്‌ലോഡ് ചെയ്യുക.' 
+                          : 'Upload a main audio file for this module.'}
+                      </p>
+                      <div className="flex gap-2">
+                        <label className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed transition-all cursor-pointer ${formData.audioUrl ? 'border-ability-blue/30 bg-ability-blue/5 text-ability-blue' : 'border-black/5 bg-white text-zinc-400 hover:border-ability-blue/30'}`}>
+                          {isUploadingModuleAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                          <span className="text-[10px] font-bold uppercase tracking-widest">
+                            {formData.audioUrl ? (language === 'ml' ? 'ഓഡിയോ മാറ്റുക' : 'Change Audio') : (language === 'ml' ? 'ഓഡിയോ അപ്‌ലോഡ്' : 'Upload Audio')}
+                          </span>
+                          <input type="file" className="hidden" accept="audio/*" onChange={handleModuleAudioUpload} disabled={isUploadingModuleAudio} />
+                        </label>
+                        {formData.audioUrl && (
+                          <button
+                            onClick={() => new Audio(formData.audioUrl).play()}
+                            className="p-3 bg-ability-blue text-white rounded-xl hover:opacity-90 transition-all"
+                            title="Play Audio"
+                          >
+                            <Play className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

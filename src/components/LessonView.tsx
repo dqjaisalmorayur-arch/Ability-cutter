@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Module, Language } from '../types';
-import { ChevronLeft, Play, Volume2, ArrowRight, Pause, Music, CheckCircle, BrainCircuit, Loader2, Gamepad2 } from 'lucide-react';
+import { ChevronLeft, Play, Volume2, ArrowRight, Pause, Music, CheckCircle, BrainCircuit, Loader2, Gamepad2, Headphones } from 'lucide-react';
 import { speakText, stopSpeaking, generateInteractiveExercise } from '../services/geminiService';
 import { moduleService } from '../services/moduleService';
 import InteractiveGame from './InteractiveGame';
@@ -16,7 +16,9 @@ interface LessonViewProps {
 export default function LessonView({ module, userId, language, onStartQuiz, onBack }: LessonViewProps) {
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isModuleAudioPlaying, setIsModuleAudioPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const moduleAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const [showGame, setShowGame] = useState(false);
   const [gameType, setGameType] = useState<'typing' | 'concept' | 'quiz'>('concept');
@@ -84,18 +86,49 @@ export default function LessonView({ module, userId, language, onStartQuiz, onBa
     }
   };
 
+  const toggleModuleAudio = () => {
+    if (!module.audioUrl) return;
+
+    if (!moduleAudioRef.current) {
+      moduleAudioRef.current = new Audio(module.audioUrl);
+      moduleAudioRef.current.onended = () => setIsModuleAudioPlaying(false);
+    }
+
+    if (isModuleAudioPlaying) {
+      moduleAudioRef.current.pause();
+      setIsModuleAudioPlaying(false);
+    } else {
+      // Stop lesson audio if playing
+      if (isPlaying && audioRef.current) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+      moduleAudioRef.current.src = module.audioUrl;
+      moduleAudioRef.current.play();
+      setIsModuleAudioPlaying(true);
+    }
+  };
+
   useEffect(() => {
     // Stop any existing audio when lesson changes
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
+    if (moduleAudioRef.current) {
+      moduleAudioRef.current.pause();
+      moduleAudioRef.current.currentTime = 0;
+    }
     setIsPlaying(false);
+    setIsModuleAudioPlaying(false);
     setShowGame(false);
 
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
+      }
+      if (moduleAudioRef.current) {
+        moduleAudioRef.current.pause();
       }
     };
   }, [currentLessonIndex, language]);
@@ -113,6 +146,21 @@ export default function LessonView({ module, userId, language, onStartQuiz, onBa
         </button>
 
         <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
+          {module.audioUrl && (
+            <button
+              onClick={toggleModuleAudio}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+                isModuleAudioPlaying 
+                  ? 'bg-ability-blue text-white border-ability-blue' 
+                  : 'bg-white text-ability-blue border-ability-blue/20 hover:bg-ability-blue hover:text-white'
+              }`}
+              aria-label={isModuleAudioPlaying ? (language === 'ml' ? 'ഓഡിയോ ക്ലാസ് നിർത്തുക' : 'Stop Audio Class') : (language === 'ml' ? 'ഓഡിയോ ക്ലാസ് കേൾക്കുക' : 'Listen to Audio Class')}
+            >
+              <Headphones className="w-4 h-4" />
+              <span>{language === 'ml' ? 'ഓഡിയോ ക്ലാസ്' : 'Audio Class'}</span>
+              {isModuleAudioPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+            </button>
+          )}
           <span className="px-5 py-2 bg-white rounded-full border border-black/5 shadow-sm">
             {language === 'ml' ? 'പാഠം' : 'Chapter'} {currentLessonIndex + 1} / {module.lessons.length}
           </span>
