@@ -383,25 +383,45 @@ function AppContent() {
       {/* Main Desktop Window */}
       <div className="w-full max-w-7xl h-full min-h-[90vh] bg-white rounded-2xl shadow-2xl border border-black/5 overflow-hidden flex flex-col">
         {/* Title Bar */}
-        <div className="bg-paper px-6 py-3 flex items-center justify-between border-b border-black/5 shrink-0">
+        <div className="bg-ink px-6 py-2.5 flex items-center justify-between border-b border-white/5 shrink-0 select-none">
           <div className="flex items-center gap-3">
-            <Logo className="w-6 h-6 text-ability-blue" />
-            <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">
-              Ability Foundation // {profile.fullName}
+            <div className="w-5 h-5 bg-ability-blue rounded flex items-center justify-center text-[10px] font-black text-white">AB</div>
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/80">
+              Ability Foundation // {language === 'ml' ? 'എബിലിറ്റി കമ്പ്യൂട്ടർ' : 'Ability Computer'} // {profile.fullName}
             </span>
           </div>
-          <div className="flex gap-3" aria-hidden="true">
-            <div className="w-3 h-3 rounded-full bg-zinc-100 border border-black/5" />
-            <div className="w-3 h-3 rounded-full bg-zinc-100 border border-black/5" />
-            <div className="w-3 h-3 rounded-full bg-ability-blue/20 border border-ability-blue/40" />
+          <div className="flex items-center gap-6">
+            <div className="flex gap-2" aria-hidden="true">
+              <div className="w-3 h-3 rounded-full bg-white/10" />
+              <div className="w-3 h-3 rounded-full bg-white/10" />
+              <div className="w-3 h-3 rounded-full bg-white/20" />
+            </div>
+            <button 
+              onClick={() => setShowAdmin(!showAdmin)}
+              className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all"
+            >
+              {showAdmin ? 'User Mode' : 'Admin'}
+            </button>
           </div>
         </div>
 
-        {/* App Header / Menu Bar */}
-        <header className="bg-white/80 backdrop-blur-md border-b border-black/5 px-8 py-5 flex items-center justify-between shrink-0">
+        {/* Menu Bar (Desktop Only) */}
+        <div className="hidden lg:flex bg-paper border-b border-black/5 px-2 py-1 gap-1 shrink-0">
+          {['File', 'Sync', 'Reports', 'Options', 'Help'].map((menu) => (
+            <button 
+              key={menu}
+              className="px-3 py-1 text-[11px] font-medium text-zinc-600 hover:bg-ability-blue hover:text-white rounded transition-colors"
+            >
+              {menu}
+            </button>
+          ))}
+        </div>
+
+        {/* App Header / Navigation Bar */}
+        <header className="bg-white border-b border-black/5 px-8 py-4 flex items-center justify-between shrink-0 z-20">
           <div 
             className="flex items-center gap-4 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-ability-blue rounded-lg p-1" 
-            onClick={() => { setCurrentModuleId(null); setShowQuiz(false); }}
+            onClick={() => { setCurrentModuleId(null); setShowQuiz(false); setShowAdmin(false); }}
             role="button"
             aria-label={profile.preferredLanguage === 'ml' ? 'ഹോം പേജ്' : 'Home'}
             tabIndex={0}
@@ -409,50 +429,54 @@ function AppContent() {
               if (e.key === 'Enter') {
                 setCurrentModuleId(null);
                 setShowQuiz(false);
+                setShowAdmin(false);
               }
             }}
           >
             <div className="p-2 bg-ability-blue rounded-xl transition-transform group-hover:scale-105">
               <Logo className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight hidden sm:block">
-              {profile.preferredLanguage === 'ml' ? 'എബിലിറ്റി ഫൗണ്ടേഷൻ' : 'Ability Foundation'}
-            </h1>
+            <div className="hidden sm:block text-left">
+              <h1 className="text-xl font-black tracking-tight text-ink">
+                {profile.preferredLanguage === 'ml' ? 'എബിലിറ്റി ഫൗണ്ടേഷൻ' : 'Ability Foundation'}
+              </h1>
+              <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Accessible Edu</div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => { setCurrentModuleId(null); setShowQuiz(false); setShowAdmin(false); }}
-              className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-paper hover:bg-ability-blue hover:text-white transition-all font-bold text-xs uppercase tracking-widest border border-black/5 focus:outline-none focus:ring-4 focus:ring-ability-blue/30"
-              aria-label={profile.preferredLanguage === 'ml' ? 'ഹോം' : 'Home'}
+              className={`px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
+                !currentModuleId && !showAdmin ? 'bg-ink text-white shadow-md' : 'text-zinc-500 hover:bg-paper'
+              }`}
             >
-              <span>{profile.preferredLanguage === 'ml' ? 'ഹോം' : 'Home'}</span>
+              {profile.preferredLanguage === 'ml' ? 'ഹോം' : 'Home'}
             </button>
             
             <button
               onClick={toggleLanguage}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-paper hover:bg-ability-blue hover:text-white transition-all font-bold text-xs uppercase tracking-widest border border-black/5 focus:outline-none focus:ring-4 focus:ring-ability-blue/30"
-              aria-label={profile.preferredLanguage === 'en' ? 'മലയാളത്തിലേക്ക് മാറ്റുക' : 'Switch to English'}
+              className="flex items-center gap-2 px-4 py-2.5 bg-paper rounded-xl text-xs font-bold text-zinc-600 hover:bg-zinc-100 transition-all border border-black/5"
+              title={profile.preferredLanguage === 'en' ? 'Switch to Malayalam' : 'Switch to English'}
             >
-              <Languages className="w-4 h-4" />
-              <span>{profile.preferredLanguage === 'en' ? 'മലയാളം' : 'English'}</span>
+              <Languages className="w-4 h-4 text-ability-blue" />
+              <span className="hidden md:inline">{profile.preferredLanguage === 'en' ? 'മലയാളം' : 'English'}</span>
             </button>
-            
+
             {profile.role === 'admin' && (
               <button
                 onClick={() => setShowAdmin(!showAdmin)}
-                className={`p-3 rounded-xl border transition-all focus:outline-none focus:ring-4 focus:ring-ability-blue/30 ${showAdmin ? 'bg-ability-blue text-white border-ability-blue' : 'bg-paper text-zinc-400 border-black/5 hover:text-ability-blue'}`}
-                aria-label={profile.preferredLanguage === 'ml' ? 'അഡ്മിൻ പാനൽ' : 'Admin Panel'}
-                aria-pressed={showAdmin}
+                className={`p-3 rounded-xl border transition-all ${showAdmin ? 'bg-ability-blue text-white border-ability-blue' : 'bg-paper text-zinc-400 border-black/5 hover:text-ability-blue'}`}
+                title="Admin Panel"
               >
                 <Settings className="w-5 h-5" />
               </button>
             )}
-            
+
             <button
               onClick={handleLogout}
-              className="p-3 rounded-xl bg-paper text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition-all border border-black/5 focus:outline-none focus:ring-4 focus:ring-red-500/30"
-              aria-label={profile.preferredLanguage === 'ml' ? 'ലോഗ് ഔട്ട്' : 'Logout'}
+              className="p-3 rounded-xl bg-paper text-zinc-400 hover:text-red-500 hover:bg-red-500/10 transition-all border border-black/5"
+              title="Logout"
             >
               <LogOut className="w-5 h-5" />
             </button>
