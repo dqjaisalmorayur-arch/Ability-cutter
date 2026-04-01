@@ -67,7 +67,14 @@ export default function Dashboard({
   }, [modules]);
 
   const filteredModules = useMemo(() => {
-    const filtered = modules.filter(m => {
+    // Remove duplicates based on title and category
+    const uniqueModules = modules.filter((m, index, self) =>
+      index === self.findIndex((t) => (
+        (t.title.en === m.title.en || t.title.ml === m.title.ml) && t.category === m.category
+      ))
+    );
+
+    const filtered = uniqueModules.filter(m => {
       const catMatch = selectedCategory === 'All' || m.category === selectedCategory;
       const levelMatch = selectedLevel === 'All' || m.level === selectedLevel;
       const searchMatch = searchQuery === '' || 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Module, Language, Lesson, Question, QuizResult, UserProgress } from '../types';
 import { moduleService } from '../services/moduleService';
 import { generateModuleContent, generateQuizQuestions, generateFullModuleFromText } from '../services/geminiService';
@@ -182,7 +182,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
           },
           category: formData.category === 'Desktop' ? result.category : formData.category,
           level: formData.level === 'basic' ? result.level : formData.level,
-          lessons: formData.lessons && formData.lessons.length > 0 ? formData.lessons : result.lessons.map((l: any) => ({ ...l, id: Date.now().toString() + Math.random().toString(36).substr(2, 9) })),
+          lessons: formData.lessons && formData.lessons.length > 0 ? formData.lessons : result.lessons.map((l: any) => ({ ...l, id: `ai-lesson-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` })),
           quiz: formData.quiz && formData.quiz.length > 0 ? formData.quiz : result.quiz.map((q: any) => ({ ...q, id: Date.now().toString() + Math.random().toString(36).substr(2, 9) }))
         });
       }
@@ -282,7 +282,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
           description: result.description || { en: '', ml: '' },
           category: result.category,
           level: result.level,
-          lessons: result.lessons.map((l: any) => ({ ...l, id: Date.now().toString() + Math.random().toString(36).substr(2, 9) })),
+          lessons: result.lessons.map((l: any) => ({ ...l, id: `ai-lesson-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` })),
           quiz: result.quiz.map((q: any) => ({ ...q, id: Date.now().toString() + Math.random().toString(36).substr(2, 9) }))
         });
         setIsAdding(true);
@@ -357,7 +357,11 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
         description: dataToSave.description || { en: '', ml: '' },
         category: dataToSave.category || 'Desktop',
         level: dataToSave.level || 'basic',
-        lessons: dataToSave.lessons || [],
+        lessons: (dataToSave.lessons || []).filter((l: any, index: number, self: any[]) =>
+          index === self.findIndex((t) => (
+            (t.title.en === l.title.en || t.title.ml === l.title.ml) && t.content.en === l.content.en
+          ))
+        ),
         quiz: dataToSave.quiz || []
       });
 
@@ -432,6 +436,14 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       setError('Error deleting module.');
     }
   };
+
+  const uniqueModules = useMemo(() => {
+    return modules.filter((m, index, self) =>
+      index === self.findIndex((t) => (
+        (t.title.en === m.title.en || t.title.ml === m.title.ml) && t.category === m.category
+      ))
+    );
+  }, [modules]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1047,7 +1059,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {modules.map((m) => (
+            {uniqueModules.map((m) => (
               <div key={m.id} className="bg-white border border-black/5 rounded-2xl p-6 flex flex-col justify-between hover:border-ability-blue/30 transition-all shadow-sm group">
                 <div className="space-y-4">
                   <div className="w-full aspect-video rounded-xl overflow-hidden bg-ability-blue/5 border border-ability-blue/10 flex items-center justify-center relative group/img">
