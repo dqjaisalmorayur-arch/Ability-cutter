@@ -37,7 +37,6 @@ export interface Module {
   lessons: Lesson[];
   quiz: Question[];
   order: number;
-  imageUrl?: string;
 }
 
 export interface UserProfile {

@@ -129,7 +129,7 @@ export default function QuizView({ module, language, profile, onComplete, onBack
           <CheckCircle2 className="w-20 h-20" />
         </div>
         <div className="space-y-4">
-          <h2 className="text-5xl font-sans font-bold text-ink tracking-tight">
+          <h2 className="text-4xl font-sans font-bold text-ink tracking-tight">
             {language === 'ml' ? 'അഭിനന്ദനങ്ങൾ!' : 'MISSION COMPLETE'}
           </h2>
           <p className="text-2xl text-zinc-500 font-medium">
@@ -174,7 +174,7 @@ export default function QuizView({ module, language, profile, onComplete, onBack
                   Score: {score}
                 </div>
               </div>
-              <h2 className="text-3xl md:text-5xl font-sans font-bold text-ink leading-[1.2]" id="quiz-question">
+              <h2 className="text-2xl md:text-4xl font-sans font-bold text-ink leading-[1.2]" id="quiz-question">
                 {questionText}
               </h2>
             </div>
@@ -196,7 +196,7 @@ export default function QuizView({ module, language, profile, onComplete, onBack
                     autoComplete="off"
                     value={userAnswer}
                     onChange={(e) => setUserAnswer(e.target.value)}
-                    className={`w-full bg-paper border-2 rounded-[2rem] p-10 text-4xl font-bold text-ink focus:outline-none transition-all shadow-inner ${
+                    className={`w-full bg-paper border-2 rounded-[2rem] p-8 text-2xl font-bold text-ink focus:outline-none transition-all shadow-inner ${
                       isCorrect === true ? 'border-emerald-500 ring-8 ring-emerald-500/10' : 
                       isCorrect === false ? 'border-red-500 ring-8 ring-red-500/10' : 
                       'border-black/5 focus:border-ability-blue focus:ring-8 focus:ring-ability-blue/5'
@@ -216,7 +216,7 @@ export default function QuizView({ module, language, profile, onComplete, onBack
                 <button
                   type="submit"
                   disabled={!userAnswer.trim() || isValidating || isCorrect === true}
-                  className="w-full bg-ink text-white font-bold py-10 rounded-[2.5rem] hover:bg-ability-blue disabled:opacity-20 disabled:cursor-not-allowed transition-all text-4xl shadow-2xl active:scale-95 focus:outline-none focus:ring-4 focus:ring-ability-blue/20 flex items-center justify-center gap-6"
+                  className="w-full bg-ink text-white font-bold py-8 rounded-[2.5rem] hover:bg-ability-blue disabled:opacity-20 disabled:cursor-not-allowed transition-all text-2xl shadow-2xl active:scale-95 focus:outline-none focus:ring-4 focus:ring-ability-blue/20 flex items-center justify-center gap-6"
                   aria-label={language === 'ml' ? 'ഉത്തരം പരിശോധിക്കുക' : 'Submit Answer'}
                 >
                   {language === 'ml' ? 'ഉത്തരം പരിശോധിക്കുക' : 'Submit Answer'}

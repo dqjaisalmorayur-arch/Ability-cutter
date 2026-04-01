@@ -5,7 +5,6 @@ export const MODULES: Module[] = [
     id: 'computer-basics-blind',
     category: 'basic',
     level: 'basic',
-    imageUrl: 'https://picsum.photos/seed/computer/800/600',
     title: {
       en: 'Introduction to Computer for Blind Students',
       ml: 'കാഴ്ചാപരിമിതിയുള്ളവർക്കായി കമ്പ്യൂട്ടർ പരിചയം'

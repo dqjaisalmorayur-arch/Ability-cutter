@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Module, Language, Lesson, Question, QuizResult, UserProgress } from '../types';
 import { moduleService } from '../services/moduleService';
-import { generateModuleContent, generateQuizQuestions, generateFullModuleFromText, generateImage, generateTitleFromImage } from '../services/geminiService';
-import { Plus, Trash2, Save, X, ChevronDown, ChevronUp, Edit2, Users, BookOpen, Calendar, ChevronLeft, Sparkles, Loader2, FileText, Upload, Database, Info, Music, Play, Pause, CheckCircle, Image as ImageIcon } from 'lucide-react';
+import { generateModuleContent, generateQuizQuestions, generateFullModuleFromText } from '../services/geminiService';
+import { Plus, Trash2, Save, X, ChevronDown, ChevronUp, Edit2, Users, BookOpen, Calendar, ChevronLeft, Sparkles, Loader2, FileText, Upload, Database, Info, Music, Play, Pause, CheckCircle } from 'lucide-react';
 // import * as mammoth from 'mammoth';
 import { MODULES } from '../constants';
 import { storage } from '../firebase';
@@ -21,14 +21,16 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
   const [allProgress, setAllProgress] = useState<UserProgress[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editSection, setEditSection] = useState<'details' | 'lessons' | 'quiz'>('details');
+  const [quickEditingId, setQuickEditingId] = useState<string | null>(null);
+  const [quickEditData, setQuickEditData] = useState<{ en: string; ml: string }>({ en: '', ml: '' });
   const [formData, setFormData] = useState<Partial<Module>>({
     category: 'Desktop',
     level: 'basic',
     title: { en: '', ml: '' },
     description: { en: '', ml: '' },
     lessons: [],
-    quiz: [],
-    imageUrl: ''
+    quiz: []
   });
 
   const categories = [
@@ -37,58 +39,39 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
   ];
 
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+
+  const loadingMessages = language === 'ml' 
+    ? [
+        'വിവരങ്ങൾ വിശകരണം ചെയ്യുന്നു...',
+        'ഏതാണ്ട് തയ്യാറായിക്കഴിഞ്ഞു...',
+        'ഇൻറർനെറ്റ് വേഗത കുറവാണെങ്കിലും ഞങ്ങൾ ശ്രമിക്കുന്നു...'
+      ]
+    : [
+        'Analyzing module content...',
+        'Almost there...',
+        'Working hard even on slow connections...'
+      ];
+
   const [uploadingAudio, setUploadingAudio] = useState<number | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
 
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload an image file (jpg, png, etc.)');
-      return;
+    if (isGenerating) {
+      interval = setInterval(() => {
+        setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length);
+      }, 3000);
+    } else {
+      setLoadingMessageIndex(0);
     }
-
-    setUploadingImage(true);
-    setError(null);
-
-    try {
-      const storageRef = ref(storage, `modules/images/${Date.now()}_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-
-      // Convert image to base64 for AI analysis
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      // Analyze image with AI to suggest title/description
-      const analysis = await generateTitleFromImage({ data: base64Data, mimeType: file.type });
-      
-      if (analysis) {
-        setFormData({
-          ...formData,
-          imageUrl: downloadURL,
-          title: analysis.title,
-          description: analysis.description,
-          category: analysis.category || formData.category
-        });
-      } else {
-        setFormData({ ...formData, imageUrl: downloadURL });
-      }
-    } catch (err) {
-      console.error('Image upload error:', err);
-      setError('Failed to upload image file. Please try again.');
-    } finally {
-      setUploadingImage(null);
-      e.target.value = '';
-    }
-  };
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isGenerating, loadingMessages.length]);
 
   const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>, lessonIndex: number) => {
     const file = e.target.files?.[0];
@@ -122,12 +105,12 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
     }
   };
 
-  const handleAutoGenerate = async (field: 'module' | 'lesson', index?: number) => {
+  const handleAutoGenerate = async (field: 'module' | 'module-desc' | 'lesson' | 'lesson-content', index?: number) => {
     let sourceText = '';
-    if (field === 'module') {
+    if (field === 'module' || field === 'module-desc') {
       sourceText = formData.title?.en || formData.title?.ml || '';
-    } else if (field === 'lesson' && typeof index === 'number') {
-      sourceText = formData.lessons?.[index]?.title?.en || formData.lessons?.[index]?.title?.ml || '';
+    } else if ((field === 'lesson' || field === 'lesson-content') && typeof index === 'number') {
+      sourceText = formData.lessons?.[index]?.title?.en || formData.lessons?.[index]?.title?.ml || formData.title?.en || '';
     }
 
     if (!sourceText) {
@@ -143,6 +126,12 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
           setFormData({
             ...formData,
             title: result.title,
+            description: formData.description?.en ? formData.description : result.content
+          });
+        } else if (field === 'module-desc') {
+          setFormData({
+            ...formData,
+            description: result.content
           });
         } else if (field === 'lesson' && typeof index === 'number') {
           const newLessons = [...(formData.lessons || [])];
@@ -152,11 +141,54 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
             content: result.content
           };
           setFormData({ ...formData, lessons: newLessons });
+        } else if (field === 'lesson-content' && typeof index === 'number') {
+          const newLessons = [...(formData.lessons || [])];
+          newLessons[index] = {
+            ...newLessons[index],
+            content: result.content
+          };
+          setFormData({ ...formData, lessons: newLessons });
         }
       }
     } catch (err) {
       console.error('Generation error:', err);
       setError('Failed to generate content. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleMagicFill = async () => {
+    const sourceText = formData.title?.en || formData.title?.ml || '';
+    if (!sourceText) {
+      setError('Please enter a title first');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      // Generate full module content if it's mostly empty
+      const result = await generateFullModuleFromText(sourceText);
+      if (result) {
+        setFormData({
+          ...formData,
+          title: {
+            en: formData.title?.en || result.title.en,
+            ml: formData.title?.ml || result.title.ml
+          },
+          description: {
+            en: formData.description?.en || result.description.en,
+            ml: formData.description?.ml || result.description.ml
+          },
+          category: formData.category === 'Desktop' ? result.category : formData.category,
+          level: formData.level === 'basic' ? result.level : formData.level,
+          lessons: formData.lessons && formData.lessons.length > 0 ? formData.lessons : result.lessons.map((l: any) => ({ ...l, id: Date.now().toString() + Math.random().toString(36).substr(2, 9) })),
+          quiz: formData.quiz && formData.quiz.length > 0 ? formData.quiz : result.quiz.map((q: any) => ({ ...q, id: Date.now().toString() + Math.random().toString(36).substr(2, 9) }))
+        });
+      }
+    } catch (err) {
+      console.error('Magic fill error:', err);
+      setError('Failed to auto-fill content.');
     } finally {
       setIsGenerating(false);
     }
@@ -187,29 +219,6 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
     } catch (err) {
       console.error('Quiz generation error:', err);
       setError('Failed to generate quiz questions. Please try again.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleGenerateImage = async () => {
-    const prompt = formData.title?.en || formData.title?.ml || '';
-    if (!prompt) {
-      setError('Please enter a title first to generate an image');
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      const imageUrl = await generateImage(prompt);
-      if (imageUrl) {
-        setFormData({ ...formData, imageUrl });
-      } else {
-        setError('Failed to generate image. Please try again.');
-      }
-    } catch (err) {
-      console.error('Image generation error:', err);
-      setError('Failed to generate image. Please try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -273,9 +282,6 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
           description: result.description || { en: '', ml: '' },
           category: result.category,
           level: result.level,
-          imageUrl: result.suggestedImageKeyword 
-            ? `https://picsum.photos/seed/${encodeURIComponent(result.suggestedImageKeyword)}/800/600`
-            : `https://picsum.photos/seed/${encodeURIComponent(result.title.en)}/800/600`,
           lessons: result.lessons.map((l: any) => ({ ...l, id: Date.now().toString() + Math.random().toString(36).substr(2, 9) })),
           quiz: result.quiz.map((q: any) => ({ ...q, id: Date.now().toString() + Math.random().toString(36).substr(2, 9) }))
         });
@@ -326,10 +332,34 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
     }
 
     try {
-      const finalData = { ...formData };
-      if (!finalData.imageUrl) {
-        finalData.imageUrl = `https://picsum.photos/seed/${encodeURIComponent(formData.title?.en || 'module')}/800/600`;
-      }
+      // Remove 'id' and ensure no undefined values are sent to Firestore
+      const { id, ...dataToSave } = formData;
+      
+      // Helper to remove undefined values recursively
+      const sanitize = (obj: any): any => {
+        if (Array.isArray(obj)) {
+          return obj.map(v => sanitize(v));
+        } else if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+          const newObj: any = {};
+          Object.keys(obj).forEach(key => {
+            if (obj[key] !== undefined) {
+              newObj[key] = sanitize(obj[key]);
+            }
+          });
+          return newObj;
+        }
+        return obj;
+      };
+
+      const finalData = sanitize({
+        ...dataToSave,
+        title: dataToSave.title || { en: '', ml: '' },
+        description: dataToSave.description || { en: '', ml: '' },
+        category: dataToSave.category || 'Desktop',
+        level: dataToSave.level || 'basic',
+        lessons: dataToSave.lessons || [],
+        quiz: dataToSave.quiz || []
+      });
 
       if (editingId) {
         await moduleService.updateModule(editingId, finalData);
@@ -347,13 +377,24 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
         title: { en: '', ml: '' }, 
         description: { en: '', ml: '' }, 
         lessons: [], 
-        quiz: [],
-        imageUrl: '' 
+        quiz: []
       });
       setError(null);
+      setSuccess(editingId ? 'Module updated successfully!' : 'Module added successfully!');
+      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       console.error('Error saving module:', err);
-      setError('Error saving module. Check console for details.');
+      let errorMessage = 'Error saving module.';
+      if (err instanceof Error) {
+        try {
+          // Check if it's a JSON error from handleFirestoreError
+          const parsed = JSON.parse(err.message);
+          if (parsed.error) errorMessage = `Firebase Error: ${parsed.error}`;
+        } catch {
+          errorMessage = `Error: ${err.message}`;
+        }
+      }
+      setError(errorMessage);
     }
   };
 
@@ -438,9 +479,19 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl flex items-center justify-between shadow-sm" role="alert">
+        <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl flex items-center justify-between shadow-sm mb-6" role="alert">
           <span className="font-medium">{error}</span>
           <button onClick={() => setError(null)} aria-label="Dismiss error"><X className="w-4 h-4" /></button>
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 border border-green-100 text-green-600 p-4 rounded-xl flex items-center justify-between shadow-sm mb-6 animate-in fade-in slide-in-from-top-4" role="status">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4" />
+            <span className="font-medium">{success}</span>
+          </div>
+          <button onClick={() => setSuccess(null)} aria-label="Dismiss success"><X className="w-4 h-4" /></button>
         </div>
       )}
 
@@ -473,32 +524,6 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
               >
                 <Database className="w-5 h-5" />
                 <span className="hidden sm:inline">Seed Data</span>
-              </button>
-              <button
-                onClick={async () => {
-                  setIsGenerating(true);
-                  try {
-                    const modulesToFix = modules.filter(m => !m.imageUrl);
-                    for (const m of modulesToFix) {
-                      await moduleService.updateModule(m.id, {
-                        imageUrl: `https://picsum.photos/seed/${encodeURIComponent(m.title.en)}/800/600`
-                      });
-                    }
-                    alert(`Fixed images for ${modulesToFix.length} modules!`);
-                  } catch (err) {
-                    console.error('Error fixing images:', err);
-                    setError('Failed to fix module images.');
-                  } finally {
-                    setIsGenerating(false);
-                  }
-                }}
-                disabled={isGenerating}
-                className="flex items-center gap-2 px-4 py-3 bg-white text-zinc-400 rounded-2xl font-bold hover:text-ability-blue transition-all border border-black/5 shadow-sm disabled:opacity-50"
-                title="Fix Missing Images"
-                aria-label="Fix Missing Images"
-              >
-                <Sparkles className="w-5 h-5" />
-                <span className="hidden sm:inline">Fix Images</span>
               </button>
               <button
                 onClick={async () => {
@@ -542,8 +567,30 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
 
           {(isAdding || editingId) && (
             <div className="bg-white border border-black/5 rounded-3xl p-8 space-y-8 shadow-xl">
+              {/* Section Tabs */}
+              <div className="flex gap-2 border-b border-black/5 pb-4">
+                <button
+                  onClick={() => setEditSection('details')}
+                  className={`px-6 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${editSection === 'details' ? 'bg-ability-blue text-white shadow-md' : 'text-zinc-400 hover:text-ink'}`}
+                >
+                  Details
+                </button>
+                <button
+                  onClick={() => setEditSection('lessons')}
+                  className={`px-6 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${editSection === 'lessons' ? 'bg-ability-blue text-white shadow-md' : 'text-zinc-400 hover:text-ink'}`}
+                >
+                  Lessons ({formData.lessons?.length || 0})
+                </button>
+                <button
+                  onClick={() => setEditSection('quiz')}
+                  className={`px-6 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${editSection === 'quiz' ? 'bg-ability-blue text-white shadow-md' : 'text-zinc-400 hover:text-ink'}`}
+                >
+                  Quiz ({formData.quiz?.length || 0})
+                </button>
+              </div>
+
               {/* Quick Upload Option */}
-              {!editingId && (
+              {!editingId && editSection === 'details' && (
                 <div className="p-6 bg-ability-blue/5 border border-ability-blue/10 rounded-2xl space-y-4">
                   <div className="flex items-center gap-3 text-ability-blue">
                     <Sparkles className="w-5 h-5" />
@@ -556,145 +603,128 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
                       ? 'നിങ്ങളുടെ ക്ലാസ്സ് നോട്ടുകൾ (PDF, Word, Text) അപ്‌ലോഡ് ചെയ്യുക. AI ഓട്ടോമാറ്റിക് ആയി മൊഡ്യൂൾ തയ്യാറാക്കും.' 
                       : 'Upload your class notes (PDF, Word, Text). AI will automatically prepare the module for you.'}
                   </p>
-                  <label className="inline-flex items-center gap-2 px-6 py-3 bg-ability-blue text-white rounded-xl font-bold hover:opacity-90 transition-all cursor-pointer shadow-md active:scale-95">
-                    {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-                    <span>{language === 'ml' ? 'ഫയൽ തിരഞ്ഞെടുക്കുക' : 'Select File'}</span>
-                    <input type="file" className="hidden" accept=".txt,.doc,.docx,.pdf,.rtf,.odt,.note" onChange={handleFileUpload} disabled={isGenerating} />
+                  <label className="inline-flex items-center gap-2 px-6 py-3 bg-ability-blue text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:scale-105 transition-all cursor-pointer shadow-lg shadow-ability-blue/20">
+                    <Upload className="w-4 h-4" />
+                    {language === 'ml' ? 'ഫയൽ തിരഞ്ഞെടുക്കുക' : 'Choose File'}
+                    <input type="file" className="hidden" accept=".pdf,.doc,.docx,.txt" onChange={handleFileUpload} />
                   </label>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="title-en" className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Title (English)</label>
+              {/* Module Details Section */}
+              {editSection === 'details' && (
+                <div className="space-y-8">
+                <div className="flex items-center justify-between border-b border-black/5 pb-4">
+                  <h3 className="text-2xl font-sans font-bold text-ink">
+                    {language === 'ml' ? 'മൊഡ്യൂൾ വിവരങ്ങൾ' : 'Module Details'}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">
+                      {language === 'ml' ? 'AI സഹായം' : 'AI Assistant'}
+                    </span>
                     <button
-                      onClick={() => handleAutoGenerate('module')}
+                      onClick={() => handleAutoGenerate('module-desc')}
                       disabled={isGenerating}
-                      className="flex items-center gap-1 text-[10px] font-bold uppercase text-ability-blue hover:opacity-70 transition-colors disabled:opacity-50"
+                      className="p-2 bg-ability-blue/5 text-ability-blue rounded-lg hover:bg-ability-blue hover:text-white transition-all disabled:opacity-50"
+                      title="Auto-generate description"
                     >
-                      {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                      Auto-Generate
+                      <Sparkles className="w-4 h-4" />
                     </button>
                   </div>
-                  <input
-                    id="title-en"
-                    type="text"
-                    value={formData.title?.en}
-                    onChange={(e) => setFormData({ ...formData, title: { ...formData.title, en: e.target.value } })}
-                    className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30"
-                    placeholder="Enter English title"
-                  />
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="title-ml" className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Title (Malayalam)</label>
-                  <input
-                    id="title-ml"
-                    type="text"
-                    value={formData.title?.ml}
-                    onChange={(e) => setFormData({ ...formData, title: { ...formData.title, ml: e.target.value } })}
-                    className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="desc-en" className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Description (English)</label>
-                  <textarea
-                    id="desc-en"
-                    value={formData.description?.en}
-                    onChange={(e) => setFormData({ ...formData, description: { ...formData.description, en: e.target.value } })}
-                    className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30 h-20"
-                    placeholder="Short description for dashboard"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="desc-ml" className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Description (Malayalam)</label>
-                  <textarea
-                    id="desc-ml"
-                    value={formData.description?.ml}
-                    onChange={(e) => setFormData({ ...formData, description: { ...formData.description, ml: e.target.value } })}
-                    className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30 h-20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="category" className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Category</label>
-                  <select
-                    id="category"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30 appearance-none"
-                  >
-                    {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="level" className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Level</label>
-                  <select
-                    id="level"
-                    value={formData.level}
-                    onChange={(e) => setFormData({ ...formData, level: e.target.value as any })}
-                    className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30"
-                  >
-                    <option value="basic">Basic</option>
-                    <option value="advanced">Advanced</option>
-                  </select>
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold uppercase text-zinc-400 tracking-widest">Module Image</label>
-                    <div className="flex items-center gap-4">
-                      <button
-                        onClick={handleGenerateImage}
-                        disabled={isGenerating || uploadingImage}
-                        className="flex items-center gap-1 text-[10px] font-bold uppercase text-ability-blue hover:opacity-70 transition-colors disabled:opacity-50"
-                        aria-label="Generate Image with AI"
-                      >
-                        {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                        Generate with AI
-                      </button>
-                      <label className="flex items-center gap-1 text-[10px] font-bold uppercase text-ability-blue hover:opacity-70 transition-colors cursor-pointer disabled:opacity-50" aria-label="Upload Custom Photo">
-                        {uploadingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                        Upload Custom Photo
-                        <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage || isGenerating} />
-                      </label>
-                    </div>
-                  </div>
-                  <div className="flex gap-4 items-start">
-                    <div className="flex-1 space-y-2">
-                      <label htmlFor="image-url" className="sr-only">Image URL</label>
-                      <input
-                        id="image-url"
-                        type="text"
-                        value={formData.imageUrl || ''}
-                        onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                        className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30"
-                        placeholder="Image URL or upload a file"
-                      />
-                      <p className="text-[10px] text-zinc-400 italic">
-                        {language === 'ml' 
-                          ? 'ഫോട്ടോ അപ്‌ലോഡ് ചെയ്താൽ ടൈറ്റിലും ഡിസ്ക്രിപ്ഷനും AI ഓട്ടോമാറ്റിക്കായി തയ്യാറാക്കും.' 
-                          : 'Uploading a photo will automatically suggest a title and description using AI.'}
-                      </p>
-                    </div>
-                    {formData.imageUrl && (
-                      <div className="w-32 h-32 rounded-2xl border border-black/5 overflow-hidden bg-paper flex-shrink-0 shadow-md group relative">
-                        <img 
-                          src={formData.imageUrl} 
-                          alt={`Preview of ${formData.title?.en || 'module'}`} 
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <ImageIcon className="text-white w-6 h-6" />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Left Column: Titles and Descriptions */}
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Title & Description (English)</label>
+                        <div className="bg-paper border border-black/5 rounded-2xl p-4 space-y-3">
+                          <input
+                            type="text"
+                            value={formData.title?.en}
+                            onChange={(e) => setFormData({ ...formData, title: { ...formData.title, en: e.target.value } })}
+                            className="w-full bg-transparent border-none p-0 focus:ring-0 font-bold text-lg placeholder:text-zinc-300"
+                            placeholder="English Title..."
+                          />
+                          <div className="h-px bg-black/5" />
+                          <textarea
+                            value={formData.description?.en}
+                            onChange={(e) => setFormData({ ...formData, description: { ...formData.description, en: e.target.value } })}
+                            className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none h-20 placeholder:text-zinc-300"
+                            placeholder="English Description..."
+                          />
                         </div>
                       </div>
-                    )}
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Title & Description (Malayalam)</label>
+                        <div className="bg-paper border border-black/5 rounded-2xl p-4 space-y-3">
+                          <input
+                            type="text"
+                            value={formData.title?.ml}
+                            onChange={(e) => setFormData({ ...formData, title: { ...formData.title, ml: e.target.value } })}
+                            className="w-full bg-transparent border-none p-0 focus:ring-0 font-bold text-lg placeholder:text-zinc-300"
+                            placeholder="മലയാളം ടൈറ്റിൽ..."
+                          />
+                          <div className="h-px bg-black/5" />
+                          <textarea
+                            value={formData.description?.ml}
+                            onChange={(e) => setFormData({ ...formData, description: { ...formData.description, ml: e.target.value } })}
+                            className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm resize-none h-20 placeholder:text-zinc-300"
+                            placeholder="മലയാളം വിവരണം..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Category</label>
+                        <select
+                          value={formData.category}
+                          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                          className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30 appearance-none cursor-pointer text-sm font-medium"
+                        >
+                          {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest">Level</label>
+                        <select
+                          value={formData.level}
+                          onChange={(e) => setFormData({ ...formData, level: e.target.value as any })}
+                          className="w-full bg-paper border border-black/5 rounded-xl px-4 py-3 focus:outline-none focus:border-ability-blue/30 cursor-pointer text-sm font-medium"
+                        >
+                          <option value="basic">Basic</option>
+                          <option value="advanced">Advanced</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Module Info */}
+                  <div className="space-y-4">
+                    <div className="p-6 bg-paper rounded-3xl border border-black/5 space-y-4">
+                      <div className="flex items-center gap-3 text-ability-blue">
+                        <Info className="w-5 h-5" />
+                        <h3 className="font-bold uppercase tracking-widest text-sm">Module Info</h3>
+                      </div>
+                      <p className="text-xs text-zinc-500 leading-relaxed">
+                        {language === 'ml' 
+                          ? 'ഈ മൊഡ്യൂൾ വിദ്യാർത്ഥികൾക്ക് ലളിതമായി മനസ്സിലാക്കാവുന്ന രീതിയിൽ തയ്യാറാക്കുക. ടൈറ്റിലും ഡിസ്ക്രിപ്ഷനും കൃത്യമായി നൽകുന്നത് പഠനം എളുപ്പമാക്കും.' 
+                          : 'Create this module in a way that is easy for students to understand. Providing accurate titles and descriptions will make learning easier.'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
 
-              {/* Lessons Section */}
-              <div className="space-y-6">
+            {/* Lessons Section */}
+              {editSection === 'lessons' && (
+                <div className="space-y-6">
                 <div className="flex items-center justify-between border-b border-black/5 pb-2">
                   <h3 className="text-xl font-sans font-bold text-ink">Lessons</h3>
                   <button
@@ -727,15 +757,26 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
                           {idx + 1}
                         </div>
                         <h4 className="font-bold text-ink">Lesson Details</h4>
-                        <button
-                          onClick={() => handleAutoGenerate('lesson', idx)}
-                          disabled={isGenerating}
-                          className="ml-auto flex items-center gap-1 text-[10px] font-bold uppercase text-ability-blue hover:opacity-70 transition-colors disabled:opacity-50"
-                          aria-label="Generate Lesson Content with AI"
-                        >
-                          {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                          Generate Content
-                        </button>
+                        <div className="ml-auto flex items-center gap-4">
+                          <button
+                            onClick={() => handleAutoGenerate('lesson', idx)}
+                            disabled={isGenerating}
+                            className="flex items-center gap-1 text-[10px] font-bold uppercase text-ability-blue hover:opacity-70 transition-colors disabled:opacity-50"
+                            aria-label="Generate Full Lesson with AI"
+                          >
+                            {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                            Full Lesson
+                          </button>
+                          <button
+                            onClick={() => handleAutoGenerate('lesson-content', idx)}
+                            disabled={isGenerating}
+                            className="flex items-center gap-1 text-[10px] font-bold uppercase text-zinc-400 hover:text-ability-blue transition-colors disabled:opacity-50"
+                            aria-label="Generate Content Only"
+                          >
+                            <FileText className="w-3 h-3" />
+                            Content Only
+                          </button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -840,9 +881,11 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
                   ))}
                 </div>
               </div>
+            )}
 
               {/* Quiz Section */}
-              <div className="space-y-6">
+              {editSection === 'quiz' && (
+                <div className="space-y-6">
                 <div className="flex items-center justify-between border-b border-black/5 pb-2">
                   <h3 className="text-xl font-sans font-bold text-ink">Quiz Questions</h3>
                   <div className="flex gap-2">
@@ -977,6 +1020,7 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
                   ))}
                 </div>
               </div>
+            )}
 
               <div className="flex gap-4 pt-8 border-t border-black/5">
                 <button
@@ -1006,13 +1050,16 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
             {modules.map((m) => (
               <div key={m.id} className="bg-white border border-black/5 rounded-2xl p-6 flex flex-col justify-between hover:border-ability-blue/30 transition-all shadow-sm group">
                 <div className="space-y-4">
-                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-paper border border-black/5">
-                    <img 
-                      src={m.imageUrl || `https://picsum.photos/seed/${encodeURIComponent(m.title.en)}/800/600`} 
-                      alt={`Cover image for module ${m.title.en}`} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      referrerPolicy="no-referrer"
-                    />
+                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-ability-blue/5 border border-ability-blue/10 flex items-center justify-center relative group/img">
+                    <BookOpen className="w-12 h-12 text-ability-blue/20 group-hover:scale-110 transition-transform duration-500" />
+                    {isGenerating && (
+                      <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center gap-2 z-10">
+                        <Loader2 className="w-6 h-6 text-ability-blue animate-spin" />
+                        <p className="text-[8px] font-bold uppercase tracking-tighter text-ability-blue animate-pulse text-center px-2">
+                          {loadingMessages[loadingMessageIndex]}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -1024,6 +1071,63 @@ export default function AdminPanel({ modules, language, onBack }: AdminPanelProp
                       </span>
                     </div>
                     <h3 className="text-xl font-sans font-bold text-ink line-clamp-1">{m.title[language] || m.title.en}</h3>
+                    
+                    {quickEditingId === m.id ? (
+                      <div className="mt-2 space-y-2">
+                        <textarea
+                          value={quickEditData.en}
+                          onChange={(e) => setQuickEditData({ ...quickEditData, en: e.target.value })}
+                          className="w-full bg-paper border border-black/5 rounded-xl p-2 text-xs h-16 focus:outline-none focus:border-ability-blue/30"
+                          placeholder="English Description..."
+                        />
+                        <textarea
+                          value={quickEditData.ml}
+                          onChange={(e) => setQuickEditData({ ...quickEditData, ml: e.target.value })}
+                          className="w-full bg-paper border border-black/5 rounded-xl p-2 text-xs h-16 focus:outline-none focus:border-ability-blue/30"
+                          placeholder="മലയാളം വിവരണം..."
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await moduleService.updateModule(m.id, { description: quickEditData });
+                                setQuickEditingId(null);
+                                setSuccess('Description updated!');
+                                setTimeout(() => setSuccess(null), 2000);
+                              } catch (err) {
+                                setError('Failed to update description');
+                              }
+                            }}
+                            className="flex-1 bg-ability-blue text-white text-[10px] font-bold uppercase py-1.5 rounded-lg"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setQuickEditingId(null)}
+                            className="flex-1 bg-paper text-zinc-400 text-[10px] font-bold uppercase py-1.5 rounded-lg"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-zinc-500 line-clamp-2 mt-1 min-h-[2.5rem]">
+                        {m.description[language] || m.description.en}
+                        <button
+                          onClick={() => {
+                            setQuickEditingId(m.id);
+                            setQuickEditData({
+                              en: m.description?.en || '',
+                              ml: m.description?.ml || ''
+                            });
+                          }}
+                          className="ml-2 text-ability-blue hover:underline font-bold"
+                        >
+                          Edit
+                        </button>
+                      </p>
+                    )}
+
                     <div className="flex gap-4 mt-3 text-[10px] font-bold uppercase text-zinc-400 tracking-widest">
                       <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> {m.lessons.length} Lessons</span>
                       <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> {m.quiz.length} Questions</span>

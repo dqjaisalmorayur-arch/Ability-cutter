@@ -36,14 +36,22 @@ const LANG_NAME: Record<Language, string> = {
 let currentAudio: HTMLAudioElement | null = null;
 
 export function stopSpeaking() {
-  // TTS removed as per user request
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
 }
 
 export async function speakText(text: string, language: Language) {
-  // TTS removed as per user request
+  if (!window.speechSynthesis) return;
+  
+  stopSpeaking();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = LANG_MAP[language] || 'en-US';
+  utterance.rate = 0.9; // Slightly slower for better clarity
+  window.speechSynthesis.speak(utterance);
 }
 
-export async function searchImage(query: string) {
+export async function searchImage(query: string, description?: string) {
   if (!query) return null;
 
   try {
@@ -52,7 +60,10 @@ export async function searchImage(query: string) {
       contents: {
         parts: [
           {
-            text: `Find a professional, high-quality educational image for: "${query}".`,
+            text: `Find a realistic, high-quality photograph for: "${query}". 
+            ${description ? `Context: "${description}"` : ''}
+            The image should ideally show a visually impaired (blind) person or student using technology or assistive tools related to the topic. 
+            Focus on inclusive, educational, and realistic imagery.`,
           },
         ],
       },
@@ -80,10 +91,10 @@ export async function searchImage(query: string) {
     }
 
     // Fallback to generated image if search fails or returns no direct links
-    return await generateImage(query);
+    return await generateImage(query, description);
   } catch (error) {
     console.error("Image Search Error:", error);
-    return await generateImage(query);
+    return await generateImage(query, description);
   }
 }
 
@@ -188,7 +199,7 @@ export async function generateQuizQuestions(topic: string) {
   }
 }
 
-export async function generateImage(prompt: string) {
+export async function generateImage(prompt: string, description?: string) {
   if (!prompt) return null;
 
   try {
@@ -197,7 +208,17 @@ export async function generateImage(prompt: string) {
       contents: {
         parts: [
           {
-            text: `Generate a professional, clean, and modern educational illustration for a learning module titled: "${prompt}". The style should be high-quality digital art, minimalistic, and suitable for a dark-themed learning platform. Avoid text in the image.`,
+            text: `Generate a realistic, high-quality photograph for a computer learning module.
+            Topic: "${prompt}"
+            ${description ? `Context: "${description}"` : ''}
+            
+            IMPORTANT: The target audience is visually impaired (blind) students learning to use technology. 
+            The image MUST be realistic and inclusive. 
+            It should show a blind student or a person with visual impairment interacting with a computer, laptop, or assistive technology (like a screen reader, Braille display, or using a keyboard with tactile markers).
+            
+            The scene should be well-lit, professional, and educational. 
+            Avoid any text, labels, or watermarks in the image. 
+            Style: Realistic photography, high resolution, authentic representation.`,
           },
         ],
       },

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile, Language } from '../types';
 import { speakText, validateAnswer } from '../services/geminiService';
-import { Eye, EyeOff, Mail, Lock, User, Phone, Calendar, ArrowRight, Chrome, Loader2, Shield } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Users, Phone, Calendar, ArrowRight, Chrome, Loader2, Shield } from 'lucide-react';
 import Logo from './Logo';
 import { authService } from '../services/authService';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -93,14 +93,14 @@ export default function Login({ onLoginSuccess, language }: LoginProps) {
             <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-black">
               <Logo />
             </div>
-            <span className="text-2xl font-black tracking-tighter text-white uppercase">Ability Learning</span>
+            <span className="text-2xl font-black tracking-tighter text-white uppercase">Ability Foundation</span>
           </div>
 
           <div className="space-y-6">
             <motion.h1 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-5xl lg:text-7xl font-black text-white leading-tight tracking-tighter uppercase"
+              className="text-4xl lg:text-6xl font-black text-white leading-tight tracking-tighter uppercase"
             >
               Empower <br />
               <span className="text-emerald-500">Your</span> <br />
@@ -120,13 +120,9 @@ export default function Login({ onLoginSuccess, language }: LoginProps) {
         </div>
 
         <div className="relative z-10 pt-12 border-t border-stone-900">
-          <div className="flex items-center gap-8">
-            <div className="flex -space-x-4">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="w-10 h-10 rounded-full border-2 border-stone-950 bg-stone-800 flex items-center justify-center overflow-hidden">
-                  <img src={`https://picsum.photos/seed/user${i}/100/100`} alt={`Student avatar ${i}`} referrerPolicy="no-referrer" />
-                </div>
-              ))}
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-stone-800 flex items-center justify-center">
+              <Users className="w-5 h-5 text-stone-500" />
             </div>
             <p className="text-stone-500 text-sm font-black uppercase tracking-widest">
               Join 500+ <br /> Students

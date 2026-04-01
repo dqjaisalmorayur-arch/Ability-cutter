@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Module, Language, ScreenReader, UserProgress } from '../types';
-import { BookOpen, PlayCircle, Filter, Monitor, Globe, HelpCircle, ChevronRight, Star, Zap, Layout, Terminal, Cpu, Settings2 } from 'lucide-react';
+import { BookOpen, PlayCircle, Filter, Monitor, Globe, HelpCircle, ChevronRight, Star, Zap, Layout, Terminal, Cpu, Settings2, Headphones, Languages, LineChart } from 'lucide-react';
 import { speakText } from '../services/geminiService';
 
 interface DashboardProps {
@@ -13,19 +13,19 @@ interface DashboardProps {
   onUpdateScreenReader: (sr: ScreenReader) => void;
 }
 
-const LANGUAGES: { code: Language; name: string }[] = [
-  { code: 'en', name: 'English' },
-  { code: 'ml', name: 'Malayalam' },
-  { code: 'hi', name: 'Hindi' },
-  { code: 'ta', name: 'Tamil' },
-  { code: 'kn', name: 'Kannada' },
-  { code: 'te', name: 'Telugu' },
-];
-
 const SCREEN_READERS: { id: ScreenReader; name: string }[] = [
   { id: 'nvda', name: 'NVDA' },
   { id: 'jaws', name: 'JAWS' },
-  { id: 'narrator', name: 'Narrator' },
+  { id: 'narrator', name: 'Narrator' }
+];
+
+const LANGUAGES: { code: Language; name: string }[] = [
+  { code: 'en', name: 'English' },
+  { code: 'ml', name: 'മലയാളം' },
+  { code: 'hi', name: 'हिन्दी' },
+  { code: 'ta', name: 'தமிழ்' },
+  { code: 'kn', name: 'ಕನ್ನಡ' },
+  { code: 'te', name: 'తెలుగు' }
 ];
 
 export default function Dashboard({ 
@@ -58,13 +58,31 @@ export default function Dashboard({
   }, [modules]);
 
   const filteredModules = useMemo(() => {
-    return modules.filter(m => {
+    const filtered = modules.filter(m => {
       const catMatch = selectedCategory === 'All' || m.category === selectedCategory;
       const levelMatch = selectedLevel === 'All' || m.level === selectedLevel;
       const searchMatch = searchQuery === '' || 
         (m.title[language] || m.title.en).toLowerCase().includes(searchQuery.toLowerCase()) ||
         (m.description[language] || m.description.en).toLowerCase().includes(searchQuery.toLowerCase());
       return catMatch && levelMatch && searchMatch;
+    });
+
+    const orderKeywords = [
+      'introduction', 'basic', 'desktop', 'taskbar', 'start', 'keyboard', 'typing', 'word', 'excel', 'powerpoint', 'internet'
+    ];
+
+    return filtered.sort((a, b) => {
+      const aTitle = a.title.en.toLowerCase();
+      const bTitle = b.title.en.toLowerCase();
+      
+      let aIndex = orderKeywords.findIndex(kw => aTitle.includes(kw));
+      let bIndex = orderKeywords.findIndex(kw => bTitle.includes(kw));
+      
+      if (aIndex === -1) aIndex = 999;
+      if (bIndex === -1) bIndex = 999;
+      
+      if (aIndex !== bIndex) return aIndex - bIndex;
+      return aTitle.localeCompare(bTitle);
     });
   }, [modules, selectedCategory, selectedLevel, searchQuery, language]);
 
@@ -111,29 +129,18 @@ export default function Dashboard({
                 {language === 'ml' ? 'മികച്ച പഠനാനുഭവം' : 'Premium Learning Experience'}
               </span>
             </div>
-            <h1 id="hero-title" className="text-5xl md:text-7xl font-sans font-bold tracking-tight text-ink leading-tight">
+            <h1 id="hero-title" className="text-4xl md:text-7xl font-sans font-bold tracking-tight text-ink leading-tight">
               {language === 'ml' ? 'പഠനം തുടങ്ങാം' : "Let's Start Learning"}
             </h1>
-            <p className="text-zinc-500 text-xl md:text-2xl max-w-2xl font-medium leading-relaxed">
+            <p className="text-zinc-500 text-xl md:text-3xl max-w-3xl font-medium leading-relaxed">
               {language === 'ml' 
                 ? 'ഏറ്റവും മികച്ച രീതിയിൽ കമ്പ്യൂട്ടർ പഠിക്കൂ. ലളിതമായ പാഠങ്ങളും ക്വിസ്സുകളും നിങ്ങളെ സഹായിക്കും.' 
                 : 'Master computer skills with ease. Simple lessons and interactive quizzes designed for everyone.'}
             </p>
           </div>
-          <div className="hidden lg:block w-1/3 aspect-[3/4] bg-paper rounded-[2rem] border border-black/5 shadow-2xl relative overflow-hidden group rotate-3 hover:rotate-0 transition-all duration-700">
-            <img 
-              src="https://picsum.photos/seed/library/600/800" 
-              alt={language === 'ml' ? 'ഒരു ലൈബ്രറിയുടെ ചിത്രം, പഠനത്തെ സൂചിപ്പിക്കുന്നു' : 'An image of a library, representing learning and education'} 
-              className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-ability-blue/20 to-transparent" />
-            <div className="absolute bottom-10 left-10 right-10">
-              <div className="p-6 bg-white/90 backdrop-blur-md rounded-2xl border border-black/5 shadow-xl">
-                <div className="text-[10px] font-bold text-ability-blue uppercase tracking-widest mb-2">Featured Course</div>
-                <div className="text-xl font-sans font-bold text-ink">Introduction to Digital Literacy</div>
-              </div>
-            </div>
+          <div className="hidden lg:flex w-1/3 aspect-square bg-ability-blue/5 rounded-[3rem] border border-ability-blue/10 items-center justify-center relative group overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-ability-blue/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            <BookOpen className="w-32 h-32 text-ability-blue/20 group-hover:text-ability-blue/40 transition-all duration-700 group-hover:scale-110" />
           </div>
         </div>
       </section>
@@ -294,88 +301,69 @@ export default function Dashboard({
               <button
                 key={m.id}
                 onClick={() => onSelectModule(m.id)}
-                className="group relative flex flex-col text-left transition-all hover:-translate-y-3 active:scale-95 focus:outline-none focus:ring-4 focus:ring-ability-blue/20 rounded-[2.5rem] bg-white border border-black/5 overflow-hidden hover:border-ability-blue/30 shadow-sm hover:shadow-2xl"
+                className="group relative flex flex-col text-left transition-all hover:-translate-y-2 active:scale-95 focus:outline-none focus:ring-4 focus:ring-ability-blue/20 rounded-[2.5rem] bg-white border border-black/5 overflow-hidden hover:border-ability-blue/30 shadow-sm hover:shadow-xl"
                 aria-label={`${m.title[language] || m.title.en}. ${m.description ? (m.description[language] || m.description.en) : ''}`}
               >
-                {/* Image Section */}
-                <div className="relative aspect-[4/5] overflow-hidden">
-                  <img 
-                    src={m.imageUrl || `https://picsum.photos/seed/${encodeURIComponent(m.title.en)}/800/1000`} 
-                    alt={`${m.title[language] || m.title.en} - ${language === 'ml' ? 'പാഠത്തിന്റെ ചിത്രം' : 'Module illustration'}`} 
-                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  
-                  {/* Category Badge */}
-                  <div className="absolute top-8 left-8 flex items-center gap-4">
-                    <div className="p-4 bg-white/95 backdrop-blur-md rounded-2xl text-ability-blue border border-black/5 shadow-xl">
-                      {getCategoryIcon(m.category)}
-                    </div>
-                  </div>
-
-                  {/* Level Badge */}
-                  <div className="absolute top-8 right-8">
-                    <span className={`px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.3em] border shadow-xl backdrop-blur-md ${
-                      m.level === 'basic' 
-                        ? 'bg-emerald-50/90 text-emerald-600 border-emerald-100' 
-                        : 'bg-ability-blue/90 text-white border-ability-blue/20'
-                    }`}>
-                      {m.level}
-                    </span>
-                  </div>
-
-                  {/* Quick Action Overlay */}
-                  <div className="absolute bottom-8 left-8 right-8 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                    <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-black/5 shadow-2xl flex items-center justify-between">
-                      <span className="text-xs font-bold text-ability-blue uppercase tracking-widest">Start Learning</span>
-                      <ChevronRight className="w-5 h-5 text-ability-blue" />
-                    </div>
-                  </div>
-                </div>
-
                 {/* Content Section */}
-                <div className="p-10 space-y-6 flex-1 flex flex-col bg-white">
-                  <div className="space-y-4 flex-1">
-                    <div className="flex items-start justify-between gap-4">
-                      <h3 className="text-3xl font-sans font-bold text-ink leading-tight group-hover:text-ability-blue transition-colors">
-                        {m.title[language] || m.title.en}
-                      </h3>
+                <div className="p-10 space-y-8 flex-1 flex flex-col bg-white">
+                  <div className="space-y-6 flex-1">
+                    <div className="flex items-center justify-between">
+                      <div className="p-4 bg-ability-blue/5 rounded-2xl text-ability-blue border border-ability-blue/10 group-hover:bg-ability-blue group-hover:text-white transition-all duration-500">
+                        {getCategoryIcon(m.category)}
+                      </div>
+                      <span className={`px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.3em] border ${
+                        m.level === 'basic' 
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                          : 'bg-ability-blue/5 text-ability-blue border-ability-blue/10'
+                      }`}>
+                        {m.level}
+                      </span>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <h3 className="text-3xl font-sans font-bold text-ink leading-tight group-hover:text-ability-blue transition-colors">
+                          {m.title[language] || m.title.en}
+                        </h3>
+                        {getModuleProgress(m.id) > 0 && (
+                          <span className="flex-shrink-0 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                            {getModuleProgress(m.id)}%
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Progress Bar */}
                       {getModuleProgress(m.id) > 0 && (
-                        <span className="flex-shrink-0 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                          {getModuleProgress(m.id)}%
-                        </span>
+                        <div className="w-full h-1.5 bg-black/5 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-emerald-500 transition-all duration-1000" 
+                            style={{ width: `${getModuleProgress(m.id)}%` }}
+                          />
+                        </div>
+                      )}
+
+                      {m.description && (
+                        <p className="text-zinc-500 text-lg font-medium leading-relaxed line-clamp-3">
+                          {m.description[language] || m.description.en}
+                        </p>
                       )}
                     </div>
-                    
-                    {/* Progress Bar */}
-                    {getModuleProgress(m.id) > 0 && (
-                      <div className="w-full h-1.5 bg-black/5 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-emerald-500 transition-all duration-1000" 
-                          style={{ width: `${getModuleProgress(m.id)}%` }}
-                        />
-                      </div>
-                    )}
-
-                    {m.description && (
-                      <p className="text-zinc-500 text-base font-medium leading-relaxed line-clamp-2">
-                        {m.description[language] || m.description.en}
-                      </p>
-                    )}
                   </div>
 
                   {/* Footer Stats */}
                   <div className="pt-8 flex items-center justify-between border-t border-black/5">
                     <div className="flex items-center gap-8 text-zinc-400">
                       <div className="flex items-center gap-2.5">
-                        <BookOpen className="w-4 h-4" aria-hidden="true" />
+                        <BookOpen className="w-5 h-5" aria-hidden="true" />
                         <span className="text-xs font-bold tracking-tight">{m.lessons.length} Lessons</span>
                       </div>
                       <div className="flex items-center gap-2.5">
-                        <Star className="w-4 h-4" aria-hidden="true" />
+                        <Star className="w-5 h-5" aria-hidden="true" />
                         <span className="text-xs font-bold tracking-tight">{m.quiz.length} Questions</span>
                       </div>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-paper flex items-center justify-center group-hover:bg-ability-blue group-hover:text-white transition-all">
+                      <ChevronRight className="w-5 h-5" />
                     </div>
                   </div>
                 </div>
@@ -395,18 +383,13 @@ export default function Dashboard({
         <div className="flex flex-col lg:flex-row gap-20 items-center">
           <div className="flex-1 space-y-10">
             <div className="flex items-center gap-6">
-              <img 
-                src="https://abilityfoundation.org.in/wp-content/uploads/2021/03/Ability-Logo-1.png" 
-                alt="Ability Foundation Logo" 
-                className="h-20 w-auto object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/ability-logo/200/200';
-                }}
-              />
+              <div className="w-20 h-20 bg-ability-blue/10 rounded-2xl flex items-center justify-center">
+                <Star className="w-10 h-10 text-ability-blue" />
+              </div>
               <div className="space-y-2">
                 <span className="text-ability-blue font-bold text-xs uppercase tracking-[0.4em]">Organization</span>
-                <h2 id="about-title" className="text-4xl md:text-5xl font-sans font-bold tracking-tight leading-tight">
-                  {language === 'ml' ? 'എബിലിറ്റി ഫൗണ്ടേഷൻ പുളിക്കൽ' : 'Ability Foundation Pulikkal'}
+                <h2 id="about-title" className="text-3xl md:text-4xl font-sans font-bold tracking-tight leading-tight">
+                  {language === 'ml' ? 'ആക്സസിബിൾ ലേണിംഗിലൂടെ കാഴ്ചപരിമിതിയുള്ളവരെ ശാക്തീകരിക്കുന്നു' : 'Empowering Visually Impaired through Accessible Learning'}
                 </h2>
               </div>
             </div>
@@ -424,27 +407,32 @@ export default function Dashboard({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { 
+                    icon: <Headphones className="w-6 h-6 text-ability-blue mb-2" />,
                     en: 'Screen Reader Optimized', 
                     ml: 'സ്ക്രീൻ റീഡർ സൗഹൃദം',
                     desc: { en: 'Fully compatible with NVDA, JAWS, and Narrator.', ml: 'NVDA, JAWS, Narrator എന്നിവയുമായി പൂർണ്ണമായും പൊരുത്തപ്പെടുന്നു.' }
                   },
                   { 
+                    icon: <BookOpen className="w-6 h-6 text-ability-blue mb-2" />,
                     en: 'Descriptive Content', 
                     ml: 'വിശദമായ പാഠങ്ങൾ',
                     desc: { en: 'Lessons designed to be easily visualized through audio.', ml: 'ശബ്ദത്തിലൂടെ എളുപ്പത്തിൽ മനസ്സിലാക്കാവുന്ന രീതിയിലുള്ള പാഠങ്ങൾ.' }
                   },
                   { 
+                    icon: <Languages className="w-6 h-6 text-ability-blue mb-2" />,
                     en: 'Bilingual Support', 
                     ml: 'ദ്വിഭാഷാ പിന്തുണ',
                     desc: { en: 'Learn in both English and Malayalam seamlessly.', ml: 'ഇംഗ്ലീഷിലും മലയാളത്തിലും ഒരേപോലെ പഠിക്കാം.' }
                   },
                   { 
+                    icon: <LineChart className="w-6 h-6 text-ability-blue mb-2" />,
                     en: 'Progress Tracking', 
                     ml: 'പഠന പുരോഗതി',
                     desc: { en: 'Monitor your learning journey with detailed stats.', ml: 'നിങ്ങളുടെ പഠന പുരോഗതി കൃത്യമായി മനസ്സിലാക്കാം.' }
                   }
                 ].map((benefit, i) => (
-                  <div key={i} className="p-6 bg-paper rounded-2xl border border-black/5 space-y-2">
+                  <div key={i} className="p-6 bg-paper rounded-2xl border border-black/5 space-y-2 hover:shadow-md transition-shadow">
+                    {benefit.icon}
                     <div className="text-ability-blue font-bold text-sm uppercase tracking-widest">{benefit[language]}</div>
                     <div className="text-zinc-500 text-xs leading-relaxed">{benefit.desc[language]}</div>
                   </div>
@@ -463,14 +451,9 @@ export default function Dashboard({
               </div>
             </div>
           </div>
-          <div className="w-full lg:w-2/5 aspect-[4/5] rounded-[2rem] overflow-hidden border border-black/5 shadow-xl relative group">
-            <img 
-              src="https://picsum.photos/seed/ability-foundation/800/1000" 
-              alt={language === 'ml' ? 'എബിലിറ്റി ഫൗണ്ടേഷൻ ക്യാമ്പസിന്റെ ചിത്രം' : 'Ability Foundation Campus building and environment'} 
-              className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-ability-blue/5 mix-blend-overlay group-hover:opacity-0 transition-opacity duration-1000" aria-hidden="true" />
+          <div className="w-full lg:w-2/5 aspect-square rounded-[3rem] bg-ability-blue/5 border border-ability-blue/10 flex items-center justify-center relative group overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-ability-blue/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            <Zap className="w-32 h-32 text-ability-blue/20 group-hover:text-ability-blue/40 transition-all duration-700 group-hover:scale-110" />
           </div>
         </div>
       </section>

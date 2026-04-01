@@ -270,14 +270,14 @@ function AppContent() {
             setCurrentModuleId(null);
             setShowQuiz(false);
             setShowAdmin(false);
-            // TTS removed as per user request
+            speakText(profile?.preferredLanguage === 'ml' ? 'ഹോം പേജിലേക്ക് മടങ്ങി.' : 'Returned to Home Page.', profile?.preferredLanguage || 'en');
             break;
           case 'k': // Keyboard Help
             e.preventDefault();
             const helpMsg = profile?.preferredLanguage === 'ml'
               ? 'കീബോർഡ് ഷോർട്ട്കട്ടുകൾ ശ്രദ്ധിക്കുക. ആൾട്ട് പ്ലസ് എൻ അടുത്ത പാഠത്തിലേക്ക് പോകാൻ. ആൾട്ട് പ്ലസ് ആർ പാഠം വീണ്ടും കേൾക്കാൻ. ആൾട്ട് പ്ലസ് എൽ ഓഡിയോ കേൾക്കാൻ. ആൾട്ട് പ്ലസ് എച്ച് ഹോം പേജിലേക്ക് പോകാൻ. ആൾട്ട് പ്ലസ് ബി തിരികെ പോകാൻ. ആൾട്ട് പ്ലസ് ടി ഭാഷ മാറ്റാൻ. ആൾട്ട് പ്ലസ് കെ ഈ വിവരങ്ങൾ വീണ്ടും കേൾക്കാൻ.'
               : 'Keyboard shortcuts help. Press Alt plus N for next. Alt plus R to repeat. Alt plus L to listen. Alt plus H for home. Alt plus B to go back. Alt plus T to toggle language. Alt plus K to hear this help again.';
-            // TTS removed as per user request
+            speakText(helpMsg, profile?.preferredLanguage || 'en');
             break;
           case 'b': // Back
             e.preventDefault();
@@ -301,7 +301,7 @@ function AppContent() {
       <div className="min-h-screen bg-paper flex flex-col items-center justify-center gap-4">
         <Loader2 className="w-12 h-12 animate-spin text-ability-blue" />
         <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs animate-pulse">
-          Initializing Ability Learning...
+          Initializing Ability Foundation...
         </p>
       </div>
     );
@@ -387,7 +387,7 @@ function AppContent() {
           <div className="flex items-center gap-3">
             <Logo className="w-6 h-6 text-ability-blue" />
             <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">
-              Ability Learning // {profile.fullName}
+              Ability Foundation // {profile.fullName}
             </span>
           </div>
           <div className="flex gap-3" aria-hidden="true">
@@ -416,7 +416,7 @@ function AppContent() {
               <Logo className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight hidden sm:block">
-              {profile.preferredLanguage === 'ml' ? 'എബിലിറ്റി ലേണിംഗ്' : 'Ability Learning'}
+              {profile.preferredLanguage === 'ml' ? 'എബിലിറ്റി ഫൗണ്ടേഷൻ' : 'Ability Foundation'}
             </h1>
           </div>
 
